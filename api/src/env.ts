@@ -53,15 +53,38 @@ export class EnvironmentVariables {
   @IsString()
   GOOGLE_API_KEY: string;
 
+  @IsOptional()
   @IsEnum([
     'gemini-3.1-flash-lite-preview',
     'gemini-3-flash-preview',
     'gemini-2.5-flash',
   ])
-  GOOGLE_GEMINI_MODEL:
+  GOOGLE_GEMINI_MODEL_ONE:
     | 'gemini-3.1-flash-lite-preview'
     | 'gemini-3-flash-preview'
     | 'gemini-2.5-flash' = 'gemini-3.1-flash-lite-preview';
+
+  @IsOptional()
+  @IsEnum([
+    'gemini-3.1-flash-lite-preview',
+    'gemini-3-flash-preview',
+    'gemini-2.5-flash',
+  ])
+  GOOGLE_GEMINI_MODEL_TWO:
+    | 'gemini-3.1-flash-lite-preview'
+    | 'gemini-3-flash-preview'
+    | 'gemini-2.5-flash' = 'gemini-3-flash-preview';
+
+  @IsOptional()
+  @IsEnum([
+    'gemini-3.1-flash-lite-preview',
+    'gemini-3-flash-preview',
+    'gemini-2.5-flash',
+  ])
+  GOOGLE_GEMINI_MODEL_THREE:
+    | 'gemini-3.1-flash-lite-preview'
+    | 'gemini-3-flash-preview'
+    | 'gemini-2.5-flash' = 'gemini-2.5-flash';
 }
 
 export function validate(config: Record<string, unknown>) {
