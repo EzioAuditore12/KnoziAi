@@ -33,6 +33,10 @@ export class EnvironmentVariables {
   PORT: number = 8000;
 
   @IsString()
+  @IsOptional()
+  CORS_ORIGIN = '*';
+
+  @IsString()
   DATABASE_URL: string;
 
   @Matches(TimeFormatRegex)

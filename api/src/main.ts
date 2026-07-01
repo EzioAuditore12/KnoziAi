@@ -11,6 +11,10 @@ import { env } from './env';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  app.enableCors({
+    origin: env.CORS_ORIGIN,
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true, // Strips away properties that do not have decorators
