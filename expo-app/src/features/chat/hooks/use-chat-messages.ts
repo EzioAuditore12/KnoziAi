@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
 import { IMessage } from '@kesha-antonov/react-native-chat';
+import { useCallback, useMemo, useState } from 'react';
+
 import { useChatAskQuestion } from '@/features/chat/hooks/use-chat-ask-question';
 import { useChatGetHistory } from '@/features/chat/hooks/use-chat-get-history';
 import { ChatMessage } from '@/features/chat/schemas/chat-message.schema';

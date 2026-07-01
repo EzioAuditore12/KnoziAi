@@ -1,10 +1,10 @@
 import { Chat } from '@kesha-antonov/react-native-chat';
 import { useHeaderHeight } from 'expo-router/react-navigation';
+import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ChatLoading } from '@/features/chat/components/chat-loading';
 import { useChatMessages } from '@/features/chat/hooks/use-chat-messages';
-import { View } from 'react-native';
 
 export default function ChattingScreen() {
   // keyboardVerticalOffset = distance from screen top to Chat container
