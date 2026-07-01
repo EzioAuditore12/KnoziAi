@@ -1,4 +1,5 @@
 import { ChatGoogleGenerativeAI } from '@dakshp1234/langchain-google-genai';
+import { BaseMessage } from '@langchain/core/messages';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -22,6 +23,11 @@ export class GeminiLlmService implements LlmService {
 
   public async ask(question: string): Promise<string> {
     const response = await this.model.invoke(question);
+    return response.content.toString();
+  }
+
+  public async askWithContext(messages: BaseMessage[]): Promise<string> {
+    const response = await this.model.invoke(messages);
     return response.content.toString();
   }
 }

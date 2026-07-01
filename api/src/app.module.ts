@@ -12,6 +12,7 @@ import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { ChatModule } from './chat/chat.module';
 import mongooseConfig, { MONGOOSE_CONFIG_NAME } from './config/mongoose.config';
 import throttlerConfig, {
   THROTTLER_CONFIG_NAME,
@@ -44,6 +45,7 @@ import { UserModule } from './user/user.module';
     UserModule,
     AuthModule,
     LlmModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [
