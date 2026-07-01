@@ -15,7 +15,7 @@ export class JwksService implements OnModuleInit {
   public async onModuleInit() {
     const activeKey = await this.getActiveKey();
 
-    // Write now 
+    // Write now
     if (!activeKey) await this.generateKeyPair();
   }
 

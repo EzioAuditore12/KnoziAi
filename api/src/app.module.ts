@@ -16,6 +16,7 @@ import mongooseConfig, { MONGOOSE_CONFIG_NAME } from './config/mongoose.config';
 import throttlerConfig, {
   THROTTLER_CONFIG_NAME,
 } from './config/throttler.config';
+import { LlmModule } from './llm/llm.module';
 import { UserModule } from './user/user.module';
 
 @Module({
@@ -42,6 +43,7 @@ import { UserModule } from './user/user.module';
 
     UserModule,
     AuthModule,
+    LlmModule,
   ],
   controllers: [AppController],
   providers: [

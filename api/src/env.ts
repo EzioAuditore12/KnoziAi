@@ -49,6 +49,19 @@ export class EnvironmentVariables {
 
   @IsString()
   SENTRY_DSN: string;
+
+  @IsString()
+  GOOGLE_API_KEY: string;
+
+  @IsEnum([
+    'gemini-3.1-flash-lite-preview',
+    'gemini-3-flash-preview',
+    'gemini-2.5-flash',
+  ])
+  GOOGLE_GEMINI_MODEL:
+    | 'gemini-3.1-flash-lite-preview'
+    | 'gemini-3-flash-preview'
+    | 'gemini-2.5-flash' = 'gemini-3.1-flash-lite-preview';
 }
 
 export function validate(config: Record<string, unknown>) {
