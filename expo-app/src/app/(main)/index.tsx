@@ -17,6 +17,8 @@ export default function HomeScreen() {
       </Button>
 
       <Link href={'/profile'}>Go To Profile</Link>
+
+      <Link href={'/chat'}>Go To Chat</Link>
     </View>
   );
 }

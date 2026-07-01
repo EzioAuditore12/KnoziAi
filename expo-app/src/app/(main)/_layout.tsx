@@ -10,6 +10,8 @@ export default function MainScreensLayout() {
   return (
     <Stack initialRouteName="index">
       <Stack.Screen name="index" options={{ title: 'Home Screen' }} />
+      <Stack.Screen name="profile" options={{ headerShown: false }} />
+      <Stack.Screen name="chat" options={{ headerShown: false }} />
     </Stack>
   );
 }
