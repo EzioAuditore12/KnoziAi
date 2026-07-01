@@ -31,7 +31,9 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "react-native-nitro-fetch",
+      "expo-secure-store"
     ],
     "experiments": {
       "typedRoutes": true,
