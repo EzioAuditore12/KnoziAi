@@ -18,6 +18,7 @@ import { PaginationDto } from 'src/common/dto/pagination.dto';
 import { ChatService } from './chat.service';
 import { AskChatResponseDto } from './dto/ask-chat-response.dto';
 import { AskChatDto } from './dto/ask-chat.dto';
+import { ChatHistoryResponseDto } from './dto/chat-history-response.dto';
 
 @ApiTags('Chat')
 @Controller('chat')
@@ -48,10 +49,11 @@ export class ChatController {
     summary: 'Get chat history',
     description: "Returns a paginated list of the user's chat messages.",
   })
+  @ApiResponse({ type: ChatHistoryResponseDto })
   public async getHistory(
     @Req() req: AuthRequest,
     @Query() paginationDto: PaginationDto,
-  ) {
+  ): Promise<ChatHistoryResponseDto> {
     const userId = req.user.id;
     return this.chatService.getHistory(userId, paginationDto);
   }

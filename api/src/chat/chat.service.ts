@@ -9,9 +9,12 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import type { PaginateModel } from 'mongoose';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { mapToDto } from 'src/utils/dto-mapper.util';
 
 import { LLM_SERVICE, type LlmService } from '../llm/interfaces/llm.interface';
 import { AskChatResponseDto } from './dto/ask-chat-response.dto';
+import { ChatHistoryResponseDto } from './dto/chat-history-response.dto';
+import { ChatMessageDto } from './dto/chat-message.dto';
 import {
   ChatMessage,
   ChatMessageDocument,
@@ -53,7 +56,10 @@ export class ChatService {
     };
   }
 
-  public async getHistory(userId: string, paginationDto: PaginationDto) {
+  public async getHistory(
+    userId: string,
+    paginationDto: PaginationDto,
+  ): Promise<ChatHistoryResponseDto> {
     const chat = await this.chatModel
       .findOne({ userId })
       .sort({ updatedAt: -1 })
@@ -66,12 +72,15 @@ export class ChatService {
         limit: paginationDto.limit,
         page: paginationDto.page,
         totalPages: 0,
+        pagingCounter: 1,
         hasNextPage: false,
         hasPrevPage: false,
+        prevPage: null,
+        nextPage: null,
       };
     }
 
-    return this.chatMessageModel.paginate(
+    const result = await this.chatMessageModel.paginate(
       { chatId: chat._id },
       {
         page: paginationDto.page,
@@ -79,6 +88,14 @@ export class ChatService {
         sort: { createdAt: -1 },
       },
     );
+
+    return {
+      ...result,
+      page: result.page ?? paginationDto.page,
+      prevPage: result.prevPage ?? null,
+      nextPage: result.nextPage ?? null,
+      docs: result.docs.map((doc) => mapToDto(ChatMessageDto, doc)),
+    };
   }
 
   private async getOrCreateChat(userId: string): Promise<ChatDocument> {
