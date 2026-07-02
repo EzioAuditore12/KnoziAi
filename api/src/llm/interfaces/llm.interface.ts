@@ -15,6 +15,8 @@ export interface LlmService {
 
   askWithContext(messages: BaseMessage[]): Promise<string>;
 
+  askWithToolsAndContext(messages: BaseMessage[]): Promise<BaseMessage[]>;
+
   askWithSystemPrompt(
     askWithSystemPromptDto: AskWithSystemPromptDto,
   ): Promise<AskWithSystemResponseDto>;

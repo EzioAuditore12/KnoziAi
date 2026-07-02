@@ -1,5 +1,5 @@
+import type { MessageContent } from '@langchain/core/messages';
 import { Exclude, Expose, Transform } from 'class-transformer';
-import { Types } from 'mongoose';
 
 import { ChatMessage } from '../entities/chat-message.entity';
 import { MessageRole } from '../enums/message-role.enum';
@@ -22,7 +22,7 @@ export class ChatMessageDto implements Omit<Partial<ChatMessage>, 'chatId'> {
   role: MessageRole;
 
   @Expose()
-  content: string;
+  content: MessageContent;
 
   @Expose()
   createdAt: Date;

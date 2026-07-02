@@ -1,5 +1,7 @@
+import type { MessageContent } from '@langchain/core/messages';
+import { ToolCall } from '@langchain/core/messages/tool';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument, Types } from 'mongoose';
+import { HydratedDocument, Schema as MongooseSchema, Types } from 'mongoose';
 import mongoosePaginate from 'mongoose-paginate-v2';
 
 import { MessageRole } from '../enums/message-role.enum';
@@ -30,10 +32,28 @@ export class ChatMessage {
   role: MessageRole;
 
   @Prop({
-    type: String,
+    type: MongooseSchema.Types.Mixed,
     required: true,
   })
-  content: string;
+  content: MessageContent;
+
+  @Prop({
+    type: MongooseSchema.Types.Mixed,
+    required: false,
+  })
+  toolCalls?: ToolCall[];
+
+  @Prop({
+    type: String,
+    required: false,
+  })
+  toolCallId?: string;
+
+  @Prop({
+    type: String,
+    required: false,
+  })
+  name?: string;
 
   createdAt: Date;
   updatedAt: Date;

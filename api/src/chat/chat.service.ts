@@ -3,11 +3,14 @@ import {
   BaseMessage,
   HumanMessage,
   SystemMessage,
+  ToolMessage,
 } from '@langchain/core/messages';
+import { InjectQueue } from '@nestjs/bullmq';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { hours } from '@nestjs/throttler';
+import { Queue } from 'bullmq';
 import type { Cache } from 'cache-manager';
 import { Model, Types } from 'mongoose';
 import type { PaginateModel } from 'mongoose';
@@ -39,6 +42,7 @@ export class ChatService {
     @Inject(LLM_SERVICE) private readonly llmService: LlmService,
 
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    @InjectQueue('chat_queue') private readonly chatQueue: Queue,
   ) {}
 
   public async ask(
@@ -47,20 +51,18 @@ export class ChatService {
   ): Promise<AskChatResponseDto> {
     const chat = await this.getOrCreateChat(userId);
 
-    await this.saveMessage(chat._id, MessageRole.USER, question);
+    const humanMsg = new HumanMessage(question);
+    await this.saveRawMessage(chat._id, MessageRole.USER, humanMsg);
 
-    const recentHistory = await this.getRecentMessages(chat._id, 10);
-    const langchainMessages = this.formatForLangChain(recentHistory);
-
-    const aiResponseContent =
-      await this.llmService.askWithContext(langchainMessages);
-
-    await this.saveMessage(chat._id, MessageRole.ASSISTANT, aiResponseContent);
-    await this.updateChatTimestamp(chat._id);
+    const job = await this.chatQueue.add('ask', {
+      userId,
+      chatId: chat._id.toString(),
+      question,
+    });
 
     return {
       chatId: chat._id.toString(),
-      response: aiResponseContent,
+      jobId: job.id,
     };
   }
 
@@ -117,29 +119,58 @@ export class ChatService {
     return chat;
   }
 
-  private async saveMessage(
+  public async saveRawMessage(
     chatId: Types.ObjectId,
     role: MessageRole,
-    content: string,
+    msg: BaseMessage,
   ): Promise<void> {
-    await this.chatMessageModel.create({
+    const payload: Partial<ChatMessage> = {
       chatId,
       role,
-      content,
-    });
+      content: msg.content,
+    };
 
-    await this.cacheManager.del(`${this.CACHE_KEY_PREFIX}${chatId.toString()}`);
-  }
+    if (msg.name) payload.name = msg.name;
 
-  private async getRecentMessages(
-    chatId: Types.ObjectId,
-    limit: number,
-  ): Promise<{ role: MessageRole; content: string }[]> {
+    const aiMsg = msg as AIMessage;
+    if (aiMsg.tool_calls && aiMsg.tool_calls.length > 0) {
+      payload.toolCalls = aiMsg.tool_calls;
+    }
+
+    if ('tool_call_id' in msg) {
+      payload.toolCallId = (msg as ToolMessage).tool_call_id;
+    }
+
+    await this.chatMessageModel.create(payload);
+
     const cacheKey = `${this.CACHE_KEY_PREFIX}${chatId.toString()}`;
     const cachedHistory =
-      await this.cacheManager.get<{ role: MessageRole; content: string }[]>(
-        cacheKey,
-      );
+      await this.cacheManager.get<Partial<ChatMessage>[]>(cacheKey);
+
+    if (cachedHistory) {
+      cachedHistory.push({
+        role: payload.role,
+        content: payload.content,
+        toolCalls: payload.toolCalls,
+        toolCallId: payload.toolCallId,
+        name: payload.name,
+      });
+
+      if (cachedHistory.length > 10) {
+        cachedHistory.shift();
+      }
+
+      await this.cacheManager.set(cacheKey, cachedHistory, this.CACHE_TTL);
+    }
+  }
+
+  public async getRecentMessages(
+    chatId: Types.ObjectId,
+    limit: number,
+  ): Promise<Partial<ChatMessage>[]> {
+    const cacheKey = `${this.CACHE_KEY_PREFIX}${chatId.toString()}`;
+    const cachedHistory =
+      await this.cacheManager.get<Partial<ChatMessage>[]>(cacheKey);
 
     if (cachedHistory) return cachedHistory;
 
@@ -155,6 +186,9 @@ export class ChatService {
     const historyToCache = recentHistory.map((msg) => ({
       role: msg.role,
       content: msg.content,
+      toolCalls: msg.toolCalls,
+      toolCallId: msg.toolCallId,
+      name: msg.name,
     }));
 
     await this.cacheManager.set(cacheKey, historyToCache, this.CACHE_TTL);
@@ -162,22 +196,29 @@ export class ChatService {
     return historyToCache;
   }
 
-  private async updateChatTimestamp(chatId: Types.ObjectId): Promise<void> {
+  public async updateChatTimestamp(chatId: Types.ObjectId): Promise<void> {
     await this.chatModel
       .updateOne({ _id: chatId }, { updatedAt: new Date() })
       .exec();
   }
 
-  private formatForLangChain(
-    messages: { role: MessageRole; content: string }[],
-  ): BaseMessage[] {
+  public formatForLangChain(messages: Partial<ChatMessage>[]): BaseMessage[] {
     return messages.map((msg) => {
       if (msg.role === MessageRole.USER) {
-        return new HumanMessage(msg.content);
+        return new HumanMessage(msg.content ?? '');
       } else if (msg.role === MessageRole.ASSISTANT) {
-        return new AIMessage(msg.content);
+        const kwargs: Record<string, unknown> = { content: msg.content ?? '' };
+        if (msg.toolCalls && msg.toolCalls.length > 0)
+          kwargs.tool_calls = msg.toolCalls;
+        return new AIMessage(kwargs);
+      } else if (msg.role === MessageRole.TOOL) {
+        return new ToolMessage({
+          content: msg.content ?? '',
+          tool_call_id: msg.toolCallId ?? '',
+          name: msg.name ?? '',
+        });
       } else {
-        return new SystemMessage(msg.content);
+        return new SystemMessage(msg.content ?? '');
       }
     });
   }

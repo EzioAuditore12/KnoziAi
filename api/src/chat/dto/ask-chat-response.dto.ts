@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class AskChatResponseDto {
   @ApiProperty({
@@ -7,9 +7,15 @@ export class AskChatResponseDto {
   })
   chatId: string;
 
-  @ApiProperty({
+  @ApiPropertyOptional({
+    description: 'The ID of the background job',
+    example: '550e8400-e29b-41d4-a716-446655440001',
+  })
+  jobId?: string;
+
+  @ApiPropertyOptional({
     description: 'The response from the LLM',
     example: 'Dependency injection is a design pattern...',
   })
-  response: string;
+  response?: string;
 }

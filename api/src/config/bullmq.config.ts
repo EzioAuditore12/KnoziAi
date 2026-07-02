@@ -15,5 +15,9 @@ export default registerAs(BULLMQ_CONFIG_NAME, (): BullRootModuleOptions => {
       password: url.password,
       tls: url.protocol === 'rediss:' ? {} : undefined,
     },
+    defaultJobOptions: {
+      removeOnComplete: true,
+      attempts: 3,
+    },
   };
 });

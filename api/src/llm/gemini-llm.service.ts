@@ -4,6 +4,7 @@ import {
   BaseMessage,
   BaseMessageLike,
   ToolCall,
+  ToolMessage,
 } from '@langchain/core/messages';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { Runnable } from '@langchain/core/runnables';
@@ -122,6 +123,48 @@ export class GeminiLlmService implements LlmService {
       modelWithTools,
     );
     return this.extractText(finalResponse.content);
+  }
+
+  public async askWithToolsAndContext(
+    messages: BaseMessage[],
+  ): Promise<BaseMessage[]> {
+    const modelWithTools = this.model.bindTools([
+      this.currentTimeTool.get(),
+      this.weatherTool.get(),
+    ]);
+
+    const newMessages: BaseMessage[] = [];
+    const conversation: BaseMessageLike[] = [...messages];
+
+    const response = await modelWithTools.invoke(conversation);
+    newMessages.push(response);
+
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      conversation.push(response);
+
+      for (const toolCall of response.tool_calls) {
+        let toolResult = '';
+        if (toolCall.name === this.currentTimeTool.toolName) {
+          toolResult = await this.currentTimeTool.get().invoke(toolCall.args);
+        } else if (toolCall.name === this.weatherTool.toolName) {
+          toolResult = await this.weatherTool.get().invoke(toolCall.args);
+        }
+
+        const toolMessage = new ToolMessage({
+          content: toolResult,
+          tool_call_id: toolCall.id ?? '',
+          name: toolCall.name,
+        });
+
+        conversation.push(toolMessage);
+        newMessages.push(toolMessage);
+      }
+
+      const finalResponse = await modelWithTools.invoke(conversation);
+      newMessages.push(finalResponse);
+    }
+
+    return newMessages;
   }
 
   private initializeModel(

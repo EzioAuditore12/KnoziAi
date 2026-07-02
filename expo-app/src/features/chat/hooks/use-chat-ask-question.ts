@@ -8,6 +8,8 @@ export function useChatAskQuestion() {
   return useMutation({
     mutationFn: chatAskQuestionApi,
     onSuccess: () => {
+      // TODO: Implement SSE streaming or job polling here to fetch live response chunks
+      // from the API instead of just invalidating queries.
       queryClient.invalidateQueries();
     },
     onError: (error) => {
