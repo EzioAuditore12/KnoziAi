@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Get,
   HttpCode,
   HttpStatus,
   Inject,
@@ -28,13 +27,30 @@ export class LlmController {
   @HttpCode(HttpStatus.OK)
   @Post('ask')
   @ApiOperation({
-    summary: 'Ask the LLM a question',
-    description:
-      'Send a prompt to the configured LLM and receive a text response. Requires authentication.',
+    summary: 'Ask LLM',
+    description: 'Use the LLM to answer a single question.',
   })
   public async ask(@Body() askLlmDto: AskLlmDto) {
     const response = await this.llmService.ask(askLlmDto.question);
-    return { response };
+    return {
+      response,
+    };
+  }
+
+  @Throttle({ short: { limit: 5, ttl: minutes(1) } })
+  @HttpCode(HttpStatus.OK)
+  @Post('ask-with-current-date-time')
+  @ApiOperation({
+    summary: 'Ask LLM with Date/Time Tool',
+    description: 'Use the LLM with the current date/time tool.',
+  })
+  public async askWithCurrentDateTime(@Body() askLlmDto: AskLlmDto) {
+    const response = await this.llmService.askWithCurrentDateTime(
+      askLlmDto.question,
+    );
+    return {
+      response,
+    };
   }
 
   @Throttle({ short: { limit: 5, ttl: minutes(1) } })

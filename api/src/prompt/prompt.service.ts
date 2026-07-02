@@ -69,8 +69,8 @@ Please generate exactly ${testCases} distinct test cases.
     extraCriteria?: string,
     examples?: { inputs: Record<string, string>; output: string }[],
   ): Promise<EvaluationResultDto> {
-    // Dynamically replace inputs in the prompt template
     let promptText = promptTemplate;
+
     for (const [key, value] of Object.entries(testCase.inputs)) {
       promptText = promptText.replace(`{${key}}`, value);
     }
@@ -209,6 +209,7 @@ ${output}
     return { results };
   }
 
+  //TODO: Need to send data chunk by chunk
   public async runEvaluationMultiShot(
     runEvaluationMultiShotRequestDto: RunEvaluationMultiShotRequestDto,
   ): Promise<RunEvaluationResponseDto> {

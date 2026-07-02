@@ -4,6 +4,7 @@ import { PromptModule } from '../prompt/prompt.module';
 import { GeminiLlmService } from './gemini-llm.service';
 import { LLM_SERVICE } from './interfaces/llm.interface';
 import { LlmController } from './llm.controller';
+import { CurrentTimeTool } from './tools/current-time.tool';
 
 @Global()
 @Module({
@@ -14,7 +15,8 @@ import { LlmController } from './llm.controller';
       provide: LLM_SERVICE,
       useClass: GeminiLlmService,
     },
+    CurrentTimeTool,
   ],
-  exports: [LLM_SERVICE],
+  exports: [LLM_SERVICE, CurrentTimeTool],
 })
 export class LlmModule {}
