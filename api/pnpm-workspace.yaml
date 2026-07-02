@@ -1,8 +1,9 @@
 packages:
-  - '.'
+  - .
 
 onlyBuiltDependencies:
   - '@scarf/scarf'
   - '@sentry/cli'
   - '@sentry/node-cpu-profiler'
+  - msgpackr-extract
   - unrs-resolver

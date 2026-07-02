@@ -4,10 +4,15 @@ import { JwtSignOptions } from '@nestjs/jwt';
 import { plainToInstance } from 'class-transformer';
 import {
   IsEnum,
+  IsInt,
   IsNumber,
   IsOptional,
+  IsPositive,
   IsString,
+  IsUrl,
   Matches,
+  Max,
+  Min,
   validateSync,
 } from 'class-validator';
 import { config } from 'dotenv';
@@ -16,6 +21,14 @@ config();
 
 // A regex to match time formats like '15m', '7d', etc.
 const TimeFormatRegex = /^\d+(ms|s|m|h|d)$/;
+
+const GOOGLE_GEMINI_MODELS = [
+  'gemini-3.1-flash-lite-preview',
+  'gemini-3-flash-preview',
+  'gemini-2.5-flash',
+] as const;
+
+type GoogleGeminiModel = (typeof GOOGLE_GEMINI_MODELS)[number];
 
 export enum Environment {
   Development = 'development',
@@ -53,38 +66,26 @@ export class EnvironmentVariables {
   @IsString()
   GOOGLE_API_KEY: string;
 
-  @IsOptional()
-  @IsEnum([
-    'gemini-3.1-flash-lite-preview',
-    'gemini-3-flash-preview',
-    'gemini-2.5-flash',
-  ])
-  GOOGLE_GEMINI_MODEL_ONE:
-    | 'gemini-3.1-flash-lite-preview'
-    | 'gemini-3-flash-preview'
-    | 'gemini-2.5-flash' = 'gemini-3.1-flash-lite-preview';
+  @IsEnum(GOOGLE_GEMINI_MODELS)
+  GOOGLE_GEMINI_MODEL_ONE: GoogleGeminiModel;
 
-  @IsOptional()
-  @IsEnum([
-    'gemini-3.1-flash-lite-preview',
-    'gemini-3-flash-preview',
-    'gemini-2.5-flash',
-  ])
-  GOOGLE_GEMINI_MODEL_TWO:
-    | 'gemini-3.1-flash-lite-preview'
-    | 'gemini-3-flash-preview'
-    | 'gemini-2.5-flash' = 'gemini-3-flash-preview';
+  @IsEnum(GOOGLE_GEMINI_MODELS)
+  GOOGLE_GEMINI_MODEL_TWO: GoogleGeminiModel;
 
-  @IsOptional()
-  @IsEnum([
-    'gemini-3.1-flash-lite-preview',
-    'gemini-3-flash-preview',
-    'gemini-2.5-flash',
-  ])
-  GOOGLE_GEMINI_MODEL_THREE:
-    | 'gemini-3.1-flash-lite-preview'
-    | 'gemini-3-flash-preview'
-    | 'gemini-2.5-flash' = 'gemini-2.5-flash';
+  @IsEnum(GOOGLE_GEMINI_MODELS)
+  GOOGLE_GEMINI_MODEL_THREE: GoogleGeminiModel;
+
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  GOOGLE_TEMPERATURE: number;
+
+  @IsInt()
+  @IsPositive()
+  GOOGLE_MAX_TOKENS: number;
+
+  @IsString()
+  REDIS_URL: string;
 }
 
 export function validate(config: Record<string, unknown>) {

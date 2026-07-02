@@ -111,20 +111,14 @@ export class GeminiLlmService implements LlmService {
     tools?: (StructuredTool | DynamicTool)[],
   ): ChatGoogleGenerativeAI {
     const apiKey = this.configService.get<string>('GOOGLE_API_KEY')!;
-    const modelOne =
-      this.configService.get<string>('GOOGLE_GEMINI_MODEL_ONE') ||
-      'gemini-3.1-flash-lite-preview';
-    const modelTwo =
-      this.configService.get<string>('GOOGLE_GEMINI_MODEL_TWO') ||
-      'gemini-3-flash-preview';
-    const modelThree =
-      this.configService.get<string>('GOOGLE_GEMINI_MODEL_THREE') ||
-      'gemini-2.5-flash';
+    const modelOne = this.configService.get<string>('GOOGLE_GEMINI_MODEL_ONE')!;
+    const modelTwo = this.configService.get<string>('GOOGLE_GEMINI_MODEL_TWO')!;
+    const modelThree = this.configService.get<string>(
+      'GOOGLE_GEMINI_MODEL_THREE',
+    )!;
 
-    const maxTokens =
-      this.configService.get<number>('GOOGLE_MAX_TOKENS') || 8192;
-    const temperature =
-      this.configService.get<number>('GOOGLE_TEMPERATURE') || 0.7;
+    const maxTokens = this.configService.get<number>('GOOGLE_MAX_TOKENS');
+    const temperature = this.configService.get<number>('GOOGLE_TEMPERATURE');
 
     const createModel = (modelName: string) => {
       const baseInstance = new ChatGoogleGenerativeAI(modelName, {
@@ -134,11 +128,10 @@ export class GeminiLlmService implements LlmService {
         maxRetries: 1,
       });
 
-      if (tools && tools.length > 0) {
+      if (tools && tools.length > 0)
         return baseInstance.bindTools(
           tools,
         ) as unknown as ChatGoogleGenerativeAI;
-      }
 
       return baseInstance;
     };
