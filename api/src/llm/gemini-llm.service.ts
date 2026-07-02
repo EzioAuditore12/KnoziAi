@@ -3,6 +3,7 @@ import { BaseMessage } from '@langchain/core/messages';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { z } from 'zod';
 
 import { AskWithSystemPromptDto } from './dto/ask-with-system-prompt.dto';
 import {
@@ -20,17 +21,25 @@ export class GeminiLlmService implements LlmService {
     const modelOne =
       this.configService.get<string>('GOOGLE_GEMINI_MODEL_ONE') ||
       'gemini-3.1-flash-lite-preview';
-    const modelTwo = this.configService.get<string>('GOOGLE_GEMINI_MODEL_TWO');
-    const modelThree = this.configService.get<string>(
-      'GOOGLE_GEMINI_MODEL_THREE',
-    );
+    const modelTwo =
+      this.configService.get<string>('GOOGLE_GEMINI_MODEL_TWO') ||
+      'gemini-3-flash-preview';
+    const modelThree =
+      this.configService.get<string>('GOOGLE_GEMINI_MODEL_THREE') ||
+      'gemini-2.5-flash';
+
+    // Increased max tokens and moved configuration potential to configService
+    const maxTokens =
+      this.configService.get<number>('GOOGLE_MAX_TOKENS') || 8192;
+    const temperature =
+      this.configService.get<number>('GOOGLE_TEMPERATURE') || 0.7;
 
     const createModel = (modelName: string) =>
       new ChatGoogleGenerativeAI(modelName, {
         apiKey,
-        temperature: 0.7,
-        maxOutputTokens: 2000,
-        maxRetries: 1, // reduced to rely on fallbacks
+        temperature,
+        maxOutputTokens: maxTokens, // Fixed truncation wall
+        maxRetries: 1,
       });
 
     const baseModel = createModel(modelOne);
@@ -41,14 +50,13 @@ export class GeminiLlmService implements LlmService {
 
     const fallbackModel = baseModel.withFallbacks({ fallbacks });
 
-    // Monkey-patch withStructuredOutput so it doesn't crash at runtime when the method is called!
+    // Monkey-patch withStructuredOutput securely
     (fallbackModel as any).withStructuredOutput = (schema: any) => {
       return baseModel.withStructuredOutput(schema).withFallbacks({
         fallbacks: fallbacks.map((m) => m.withStructuredOutput(schema)),
       });
     };
 
-    // We trick TS here as requested so the methods stay completely clean
     this.model = fallbackModel as unknown as ChatGoogleGenerativeAI;
   }
 
@@ -86,20 +94,26 @@ export class GeminiLlmService implements LlmService {
     askWithSystemPromptDto: AskWithSystemPromptDto,
   ): Promise<AskWithSystemResponseDto> {
     const { system, query } = askWithSystemPromptDto;
-
     const structuredLlm = this.model.withStructuredOutput(
       askWithSystemResponseSchema,
     );
-
     const prompt = ChatPromptTemplate.fromMessages([
       ['system', '{system}'],
       ['human', '{query}'],
     ]);
 
     const chain = prompt.pipe(structuredLlm);
+    return await chain.invoke({ system, query });
+  }
 
-    const response = await chain.invoke({ system, query });
+  public async askWithStructuredOutput<T>(
+    promptText: string,
+    schema: z.ZodType<T>,
+  ): Promise<T> {
+    const structuredLlm = this.model.withStructuredOutput(schema);
+    const prompt = ChatPromptTemplate.fromMessages([['human', '{query}']]);
+    const chain = prompt.pipe(structuredLlm);
 
-    return response;
+    return (await chain.invoke({ query: promptText })) as T;
   }
 }

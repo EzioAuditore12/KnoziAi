@@ -1,4 +1,6 @@
 import { BaseMessage } from '@langchain/core/messages';
+import { z } from 'zod';
+
 import { AskWithSystemPromptDto } from '../dto/ask-with-system-prompt.dto';
 import { AskWithSystemResponseDto } from '../dto/ask-with-system-response.dto';
 
@@ -11,5 +13,11 @@ export interface LlmService {
     askWithSystemPromptDto: AskWithSystemPromptDto,
   ): Promise<AskWithSystemResponseDto>;
   askUsingStream(question: string): AsyncGenerator<string, void, unknown>;
-  askWithContextUsingStream(messages: BaseMessage[]): AsyncGenerator<string, void, unknown>;
+  askWithContextUsingStream(
+    messages: BaseMessage[],
+  ): AsyncGenerator<string, void, unknown>;
+  askWithStructuredOutput<T>(
+    promptText: string,
+    schema: z.ZodType<T>,
+  ): Promise<T>;
 }

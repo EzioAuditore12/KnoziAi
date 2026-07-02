@@ -18,6 +18,7 @@ import throttlerConfig, {
   THROTTLER_CONFIG_NAME,
 } from './config/throttler.config';
 import { LlmModule } from './llm/llm.module';
+import { PromptModule } from './prompt/prompt.module';
 import { UserModule } from './user/user.module';
 
 @Module({
@@ -46,6 +47,7 @@ import { UserModule } from './user/user.module';
     AuthModule,
     LlmModule,
     ChatModule,
+    PromptModule,
   ],
   controllers: [AppController],
   providers: [
