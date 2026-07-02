@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useUniwind, Uniwind } from 'uniwind';
+import { Uniwind, useUniwind } from 'uniwind';
 
 export function useColorScheme() {
   const { theme } = useUniwind();
@@ -20,7 +20,7 @@ export function useColorScheme() {
   return {
     colorScheme: currentTheme,
     isDarkColorScheme: currentTheme === 'dark',
-    setColorScheme: (newTheme: "light" | "dark" | "system") => Uniwind.setTheme(newTheme),
+    setColorScheme: (newTheme: 'light' | 'dark' | 'system') => Uniwind.setTheme(newTheme),
     toggleColorScheme: () => Uniwind.setTheme(theme === 'dark' ? 'light' : 'dark'),
   };
 }

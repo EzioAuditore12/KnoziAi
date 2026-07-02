@@ -9,7 +9,12 @@ interface RegisterFormProps extends ViewProps {
   handleSubmit: (data: RegisterParam) => Promise<any> | void;
 }
 
-export function RegisterForm({ className, handleSubmit, isSubmitting, ...props }: RegisterFormProps) {
+export function RegisterForm({
+  className,
+  handleSubmit,
+  isSubmitting,
+  ...props
+}: RegisterFormProps) {
   const Form = useAppForm({
     defaultValues: {
       name: '',

@@ -25,7 +25,11 @@ export default function RegisterScreen() {
     >
       <Text variant={'h2'}>Create an Account</Text>
 
-      <RegisterForm className="w-full max-w-4xl mt-4" handleSubmit={mutateAsync} isSubmitting={isPending} />
+      <RegisterForm
+        className="mt-4 w-full max-w-4xl"
+        handleSubmit={mutateAsync}
+        isSubmitting={isPending}
+      />
 
       <View className="mt-4 flex-row items-center gap-x-1">
         <Text variant={'muted'}>Already have an account?</Text>

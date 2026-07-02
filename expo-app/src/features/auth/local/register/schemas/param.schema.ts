@@ -1,5 +1,5 @@
-import { z } from 'zod';
 import { isStrongPassword } from 'validator';
+import { z } from 'zod';
 
 export const registerParamSchema = z.object({
   name: z.string().max(50),
