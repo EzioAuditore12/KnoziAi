@@ -7,9 +7,14 @@ const nativeOnlyModules = new Set([
   'react-native-nitro-modules',
   'react-native-mmkv',
   'react-native-nitro-fetch',
+  'react-native-nitro-text-decoder',
+  'react-native-nitro-markdown',
 ]);
 
-const webOnlyModules = new Set(['@react-native-async-storage/async-storage']);
+const webOnlyModules = new Set([
+  '@react-native-async-storage/async-storage',
+  'web-streams-polyfill',
+]);
 
 config.resolver.sourceExts = [...(config.resolver.sourceExts || []), 'mjs', 'cjs'];
 

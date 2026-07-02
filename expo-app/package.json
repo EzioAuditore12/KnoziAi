@@ -47,7 +47,9 @@
     "react-native-keyboard-controller": "1.21.9",
     "react-native-mmkv": "^4.3.2",
     "react-native-nitro-fetch": "^1.4.2",
+    "react-native-nitro-markdown": "^0.8.1",
     "react-native-nitro-modules": "^0.36.1",
+    "react-native-nitro-text-decoder": "^0.2.0",
     "react-native-reanimated": "4.5.0",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "4.25.2",
@@ -56,10 +58,12 @@
     "standard-parse": "^0.6.0",
     "tailwind-merge": "^3.6.0",
     "uniwind": "^1.10.0",
+    "web-streams-polyfill": "^4.3.0",
     "zod": "^4.4.3",
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@babel/plugin-transform-runtime": "^8.0.1",
     "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
     "@types/react": "~19.2.2",
     "eslint": "^9.39.4",

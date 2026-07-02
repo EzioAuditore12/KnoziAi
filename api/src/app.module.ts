@@ -1,3 +1,4 @@
+import { RedisModule, RedisModuleOptions } from '@nestjs-modules/ioredis';
 import { BullModule, BullRootModuleOptions } from '@nestjs/bullmq';
 import { CacheModule, CacheModuleOptions } from '@nestjs/cache-manager';
 import { Module } from '@nestjs/common';
@@ -18,6 +19,7 @@ import { ChatModule } from './chat/chat.module';
 import bullmqConfig, { BULLMQ_CONFIG_NAME } from './config/bullmq.config';
 import cacheConfig, { CACHE_CONFIG_NAME } from './config/cache.config';
 import mongooseConfig, { MONGOOSE_CONFIG_NAME } from './config/mongoose.config';
+import redisConfig, { REDIS_CONFIG_NAME } from './config/redis.config';
 import throttlerConfig, {
   THROTTLER_CONFIG_NAME,
 } from './config/throttler.config';
@@ -28,15 +30,24 @@ import { UserModule } from './user/user.module';
 const injectConfig = <T>(configName: string) => ({
   imports: [ConfigModule],
   inject: [ConfigService],
-  useFactory: (configService: ConfigService) =>
-    configService.get<T>(configName)!,
+  useFactory: (configService: ConfigService) => {
+    const config = configService.get<T>(configName)!;
+    console.log(`[ConfigFactory] Resolved config for ${configName}:`, config);
+    return config;
+  },
 });
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [mongooseConfig, throttlerConfig, cacheConfig, bullmqConfig],
+      load: [
+        mongooseConfig,
+        throttlerConfig,
+        cacheConfig,
+        bullmqConfig,
+        redisConfig,
+      ],
     }),
     SentryModule.forRoot(),
 
@@ -54,6 +65,10 @@ const injectConfig = <T>(configName: string) => ({
 
     BullModule.forRootAsync(
       injectConfig<BullRootModuleOptions>(BULLMQ_CONFIG_NAME),
+    ),
+
+    RedisModule.forRootAsync(
+      injectConfig<RedisModuleOptions>(REDIS_CONFIG_NAME),
     ),
 
     UserModule,

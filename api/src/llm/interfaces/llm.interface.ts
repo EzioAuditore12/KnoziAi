@@ -17,6 +17,10 @@ export interface LlmService {
 
   askWithToolsAndContext(messages: BaseMessage[]): Promise<BaseMessage[]>;
 
+  askWithToolsAndContextStream(
+    messages: BaseMessage[],
+  ): AsyncGenerator<string, BaseMessage[], unknown>;
+
   askWithSystemPrompt(
     askWithSystemPromptDto: AskWithSystemPromptDto,
   ): Promise<AskWithSystemResponseDto>;

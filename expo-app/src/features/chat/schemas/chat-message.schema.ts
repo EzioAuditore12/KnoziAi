@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const chatMessageSchema = z.object({
   id: z.string(),
   chatId: z.string(),
-  role: z.enum(['USER', 'ASSISTANT', 'SYSTEM']),
+  role: z.enum(['USER', 'ASSISTANT', 'SYSTEM', 'TOOL']),
   content: z.string(),
   createdAt: z.iso.datetime(),
   updatedAt: z.iso.datetime(),

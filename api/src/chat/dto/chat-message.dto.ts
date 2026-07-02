@@ -22,7 +22,17 @@ export class ChatMessageDto implements Omit<Partial<ChatMessage>, 'chatId'> {
   role: MessageRole;
 
   @Expose()
-  content: MessageContent;
+  @Transform(({ value }) => {
+    if (typeof value === 'string') return value;
+    if (Array.isArray(value)) {
+      return value
+        .filter((c: any) => c.type === 'text' && c.text)
+        .map((c: any) => c.text)
+        .join('');
+    }
+    return String(value);
+  })
+  content: string;
 
   @Expose()
   createdAt: Date;

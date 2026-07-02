@@ -125,6 +125,76 @@ export class GeminiLlmService implements LlmService {
     return this.extractText(finalResponse.content);
   }
 
+  public async *askWithToolsAndContextStream(
+    messages: BaseMessage[],
+  ): AsyncGenerator<string, BaseMessage[], unknown> {
+    const modelWithTools = this.model.bindTools([
+      this.currentTimeTool.get(),
+      this.weatherTool.get(),
+    ]);
+
+    const newMessages: BaseMessage[] = [];
+    const conversation: BaseMessageLike[] = [...messages];
+
+    const stream = await modelWithTools.stream(conversation);
+    let fullResponse: any = null;
+
+    for await (const chunk of stream) {
+      if (!fullResponse) fullResponse = chunk;
+      else fullResponse = fullResponse.concat(chunk);
+
+      const content = chunk.content;
+      if (content) {
+        yield typeof content === 'string' ? content : String(content);
+      }
+    }
+
+    if (fullResponse) {
+      newMessages.push(fullResponse);
+
+      if (fullResponse.tool_calls && fullResponse.tool_calls.length > 0) {
+        conversation.push(fullResponse);
+
+        for (const toolCall of fullResponse.tool_calls) {
+          let toolResult = '';
+          if (toolCall.name === this.currentTimeTool.toolName) {
+            toolResult = await this.currentTimeTool.get().invoke(toolCall.args);
+          } else if (toolCall.name === this.weatherTool.toolName) {
+            toolResult = await this.weatherTool.get().invoke(toolCall.args);
+          }
+
+          const toolMessage = new ToolMessage({
+            content: toolResult,
+            tool_call_id: toolCall.id ?? '',
+            name: toolCall.name,
+          });
+
+          conversation.push(toolMessage);
+          newMessages.push(toolMessage);
+        }
+
+        const secondStream = await modelWithTools.stream(conversation);
+        let secondFullResponse: any = null;
+
+        for await (const chunk of secondStream) {
+          if (!secondFullResponse) secondFullResponse = chunk;
+          else secondFullResponse = secondFullResponse.concat(chunk);
+
+          const content = chunk.content;
+          if (content) {
+            yield typeof content === 'string' ? content : String(content);
+          }
+        }
+
+        if (secondFullResponse) {
+          newMessages.push(secondFullResponse);
+        }
+      }
+    }
+
+    return newMessages;
+  }
+
   public async askWithToolsAndContext(
     messages: BaseMessage[],
   ): Promise<BaseMessage[]> {
