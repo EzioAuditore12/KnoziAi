@@ -4,8 +4,11 @@ import {
   HumanMessage,
   SystemMessage,
 } from '@langchain/core/messages';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Inject, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { hours } from '@nestjs/throttler';
+import type { Cache } from 'cache-manager';
 import { Model, Types } from 'mongoose';
 import type { PaginateModel } from 'mongoose';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
@@ -24,6 +27,9 @@ import { MessageRole } from './enums/message-role.enum';
 
 @Injectable()
 export class ChatService {
+  private readonly CACHE_KEY_PREFIX = 'chat_history_';
+  private readonly CACHE_TTL = hours(1);
+
   constructor(
     @InjectModel(Chat.name)
     private readonly chatModel: Model<ChatDocument>,
@@ -31,6 +37,8 @@ export class ChatService {
     private readonly chatMessageModel: PaginateModel<ChatMessageDocument>,
 
     @Inject(LLM_SERVICE) private readonly llmService: LlmService,
+
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   public async ask(
@@ -103,9 +111,9 @@ export class ChatService {
       .findOne({ userId })
       .sort({ updatedAt: -1 })
       .exec();
-    if (!chat) {
-      chat = await this.chatModel.create({ userId });
-    }
+
+    if (!chat) chat = await this.chatModel.create({ userId });
+
     return chat;
   }
 
@@ -119,12 +127,22 @@ export class ChatService {
       role,
       content,
     });
+
+    await this.cacheManager.del(`${this.CACHE_KEY_PREFIX}${chatId.toString()}`);
   }
 
   private async getRecentMessages(
     chatId: Types.ObjectId,
     limit: number,
-  ): Promise<ChatMessageDocument[]> {
+  ): Promise<{ role: MessageRole; content: string }[]> {
+    const cacheKey = `${this.CACHE_KEY_PREFIX}${chatId.toString()}`;
+    const cachedHistory =
+      await this.cacheManager.get<{ role: MessageRole; content: string }[]>(
+        cacheKey,
+      );
+
+    if (cachedHistory) return cachedHistory;
+
     const recentHistory = await this.chatMessageModel
       .find({ chatId })
       .sort({ createdAt: -1 })
@@ -133,7 +151,15 @@ export class ChatService {
 
     // Reverse so chronological order is maintained for LLM
     recentHistory.reverse();
-    return recentHistory;
+
+    const historyToCache = recentHistory.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+
+    await this.cacheManager.set(cacheKey, historyToCache, this.CACHE_TTL);
+
+    return historyToCache;
   }
 
   private async updateChatTimestamp(chatId: Types.ObjectId): Promise<void> {
@@ -142,7 +168,9 @@ export class ChatService {
       .exec();
   }
 
-  private formatForLangChain(messages: ChatMessageDocument[]): BaseMessage[] {
+  private formatForLangChain(
+    messages: { role: MessageRole; content: string }[],
+  ): BaseMessage[] {
     return messages.map((msg) => {
       if (msg.role === MessageRole.USER) {
         return new HumanMessage(msg.content);

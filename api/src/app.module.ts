@@ -47,10 +47,10 @@ const injectConfig = <T>(configName: string) => ({
     ThrottlerModule.forRootAsync(
       injectConfig<ThrottlerModuleOptions>(THROTTLER_CONFIG_NAME),
     ),
-
-    CacheModule.registerAsync(
-      injectConfig<CacheModuleOptions>(CACHE_CONFIG_NAME),
-    ),
+    CacheModule.registerAsync({
+      isGlobal: true,
+      ...injectConfig<CacheModuleOptions>(CACHE_CONFIG_NAME),
+    }),
 
     BullModule.forRootAsync(
       injectConfig<BullRootModuleOptions>(BULLMQ_CONFIG_NAME),
