@@ -1,14 +1,15 @@
-import { Global, Module } from '@nestjs/common';
+import { HttpModule } from '@nestjs/axios';
+import { Module } from '@nestjs/common';
 
-import { PromptModule } from '../prompt/prompt.module';
 import { GeminiLlmService } from './gemini-llm.service';
 import { LLM_SERVICE } from './interfaces/llm.interface';
 import { LlmController } from './llm.controller';
+import { OpenWeatherProvider } from './providers/openweather.provider';
 import { CurrentTimeTool } from './tools/current-time.tool';
+import { WeatherTool } from './tools/weather.tool';
 
-@Global()
 @Module({
-  imports: [PromptModule],
+  imports: [HttpModule],
   controllers: [LlmController],
   providers: [
     {
@@ -16,7 +17,9 @@ import { CurrentTimeTool } from './tools/current-time.tool';
       useClass: GeminiLlmService,
     },
     CurrentTimeTool,
+    OpenWeatherProvider,
+    WeatherTool,
   ],
-  exports: [LLM_SERVICE, CurrentTimeTool],
+  exports: [LLM_SERVICE, CurrentTimeTool, WeatherTool],
 })
 export class LlmModule {}

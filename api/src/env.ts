@@ -86,6 +86,16 @@ export class EnvironmentVariables {
 
   @IsString()
   REDIS_URL: string;
+
+  @IsString()
+  OPENWEATHER_API_KEY: string;
+
+  @IsUrl({ require_tld: false })
+  OPENWEATHER_BASE_URL: string;
+
+  @IsString()
+  @IsOptional()
+  WEATHER_DEFAULT_LOCATION: string = 'Delhi';
 }
 
 export function validate(config: Record<string, unknown>) {

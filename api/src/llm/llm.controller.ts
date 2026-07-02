@@ -55,6 +55,20 @@ export class LlmController {
 
   @Throttle({ short: { limit: 5, ttl: minutes(1) } })
   @HttpCode(HttpStatus.OK)
+  @Post('ask-with-weather')
+  @ApiOperation({
+    summary: 'Ask LLM with Weather Tool',
+    description: 'Use the LLM with the weather tool.',
+  })
+  public async askWithWeather(@Body() askLlmDto: AskLlmDto) {
+    const response = await this.llmService.askWithWeather(askLlmDto.question);
+    return {
+      response,
+    };
+  }
+
+  @Throttle({ short: { limit: 5, ttl: minutes(1) } })
+  @HttpCode(HttpStatus.OK)
   @Post('ask-with-system-prompt')
   @ApiOperation({
     summary: 'Ask the LLM a question with a custom system prompt',

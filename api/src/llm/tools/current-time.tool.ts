@@ -2,13 +2,15 @@ import { DynamicTool } from '@langchain/core/tools';
 import { Injectable } from '@nestjs/common';
 import { formatInTimeZone } from 'date-fns-tz';
 
+import { LlmTool } from '../interfaces/llm-tool.interface';
+
 @Injectable()
-export class CurrentTimeTool {
+export class CurrentTimeTool implements LlmTool {
   private readonly timeZone = 'Asia/Kolkata';
 
   public readonly toolName = 'get_current_datetime';
 
-  public getDateTimeTool(): DynamicTool {
+  public get(): DynamicTool {
     return new DynamicTool({
       name: this.toolName,
       description:

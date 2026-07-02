@@ -19,6 +19,7 @@ import {
 } from './dto/ask-with-system-response.dto';
 import { LlmService } from './interfaces/llm.interface';
 import { CurrentTimeTool } from './tools/current-time.tool';
+import { WeatherTool } from './tools/weather.tool';
 
 @Injectable()
 export class GeminiLlmService implements LlmService {
@@ -27,6 +28,7 @@ export class GeminiLlmService implements LlmService {
   constructor(
     private readonly configService: ConfigService,
     private readonly currentTimeTool: CurrentTimeTool,
+    private readonly weatherTool: WeatherTool,
   ) {
     this.model = this.initializeModel();
   }
@@ -90,9 +92,24 @@ export class GeminiLlmService implements LlmService {
 
   public async askWithCurrentDateTime(question: string): Promise<string> {
     // 1. Bind tools to the model ONLY for this specific request
-    const modelWithTools = this.model.bindTools([
-      this.currentTimeTool.getDateTimeTool(),
-    ]);
+    const modelWithTools = this.model.bindTools([this.currentTimeTool.get()]);
+
+    // 2. Send the initial question to the model
+    const messages: BaseMessageLike[] = [['human', question]];
+    const response = await modelWithTools.invoke(messages);
+
+    // 3. Handle potential tool calls and get the final response
+    const finalResponse = await this.handleToolCalls(
+      response,
+      messages,
+      modelWithTools,
+    );
+    return this.extractText(finalResponse.content);
+  }
+
+  public async askWithWeather(question: string): Promise<string> {
+    // 1. Bind tools to the model ONLY for this specific request
+    const modelWithTools = this.model.bindTools([this.weatherTool.get()]);
 
     // 2. Send the initial question to the model
     const messages: BaseMessageLike[] = [['human', question]];
@@ -178,7 +195,19 @@ export class GeminiLlmService implements LlmService {
   ): Promise<void> {
     for (const toolCall of toolCalls) {
       if (toolCall.name === this.currentTimeTool.toolName) {
-        const tool = this.currentTimeTool.getDateTimeTool();
+        const tool = this.currentTimeTool.get();
+        // Invoke the tool with the arguments provided by the model
+        const toolResult = await tool.invoke(toolCall.args);
+
+        // Append the tool's result back into the conversation history
+        messages.push({
+          role: 'tool',
+          content: toolResult,
+          tool_call_id: toolCall.id,
+          name: toolCall.name,
+        });
+      } else if (toolCall.name === this.weatherTool.toolName) {
+        const tool = this.weatherTool.get();
         // Invoke the tool with the arguments provided by the model
         const toolResult = await tool.invoke(toolCall.args);
 

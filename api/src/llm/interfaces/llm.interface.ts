@@ -11,6 +11,8 @@ export interface LlmService {
 
   askWithCurrentDateTime(question: string): Promise<string>;
 
+  askWithWeather(question: string): Promise<string>;
+
   askWithContext(messages: BaseMessage[]): Promise<string>;
 
   askWithSystemPrompt(
