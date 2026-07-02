@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 
 type IconProps = LucideProps & {
   as: LucideIcon;
+  className?: string;
 } & React.RefAttributes<LucideIcon>;
 
 function IconImpl({ as: IconComponent, ...props }: IconProps) {
