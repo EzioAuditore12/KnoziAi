@@ -8,14 +8,19 @@ export const LLM_SERVICE = 'LLM_SERVICE';
 
 export interface LlmService {
   ask(question: string): Promise<string>;
+
   askWithContext(messages: BaseMessage[]): Promise<string>;
+
   askWithSystemPrompt(
     askWithSystemPromptDto: AskWithSystemPromptDto,
   ): Promise<AskWithSystemResponseDto>;
+
   askUsingStream(question: string): AsyncGenerator<string, void, unknown>;
+
   askWithContextUsingStream(
     messages: BaseMessage[],
   ): AsyncGenerator<string, void, unknown>;
+
   askWithStructuredOutput<T>(
     promptText: string,
     schema: z.ZodType<T>,

@@ -1,28 +1,12 @@
 import { Type } from 'class-transformer';
-import { IsArray, IsNotEmpty, IsString, ValidateNested } from 'class-validator';
-import { z } from 'zod';
-
-export const generateDatasetResponseSchema = z.object({
-  dataset: z
-    .array(
-      z.object({
-        task: z.string().describe('Description of the evaluation task'),
-      }),
-    )
-    .describe('An array of evaluation tasks'),
-});
-
-export type GenerateDatasetResponse = z.infer<
-  typeof generateDatasetResponseSchema
->;
+import { IsArray, IsObject, ValidateNested } from 'class-validator';
 
 export class EvaluationTaskDto {
-  @IsString()
-  @IsNotEmpty()
-  task: string;
+  @IsObject()
+  inputs: Record<string, any>;
 }
 
-export class GenerateDatasetResponseDto implements GenerateDatasetResponse {
+export class GenerateDatasetResponseDto {
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => EvaluationTaskDto)

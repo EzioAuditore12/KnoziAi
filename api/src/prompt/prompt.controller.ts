@@ -4,6 +4,8 @@ import { minutes, Throttle } from '@nestjs/throttler';
 
 import { GenerateDatasetRequestDto } from './dto/generate-dataset-request.dto';
 import { GradeRequestDto } from './dto/grade-request.dto';
+import { RunEvaluationMultiShotRequestDto } from './dto/run-evaluation-multi-shot-request.dto';
+import { RunEvaluationOneShotRequestDto } from './dto/run-evaluation-one-shot-request.dto';
 import { RunEvaluationRequestDto } from './dto/run-evaluation-request.dto';
 import { PromptService } from './prompt.service';
 
@@ -62,15 +64,49 @@ export class PromptController {
   @HttpCode(HttpStatus.OK)
   @Post('run-evaluation')
   @ApiOperation({
-    summary: 'Run prompt evaluation pipeline',
+    summary: 'Run prompt evaluation pipeline (Zero-Shot)',
     description:
-      'Run a dataset of tasks against the LLM to evaluate the prompt.',
+      'Run a dataset of tasks against the LLM to evaluate the prompt without examples.',
   })
   public async runEvaluation(
     @Body() runEvaluationRequestDto: RunEvaluationRequestDto,
   ) {
     const response = await this.promptService.runEvaluation(
       runEvaluationRequestDto,
+    );
+    return response;
+  }
+
+  @Throttle({ short: { limit: 5, ttl: minutes(1) } })
+  @HttpCode(HttpStatus.OK)
+  @Post('run-evaluation/one-shot')
+  @ApiOperation({
+    summary: 'Run prompt evaluation pipeline (One-Shot)',
+    description:
+      'Run a dataset of tasks against the LLM to evaluate the prompt with a single example.',
+  })
+  public async runEvaluationOneShot(
+    @Body() runEvaluationOneShotRequestDto: RunEvaluationOneShotRequestDto,
+  ) {
+    const response = await this.promptService.runEvaluationOneShot(
+      runEvaluationOneShotRequestDto,
+    );
+    return response;
+  }
+
+  @Throttle({ short: { limit: 5, ttl: minutes(1) } })
+  @HttpCode(HttpStatus.OK)
+  @Post('run-evaluation/multi-shot')
+  @ApiOperation({
+    summary: 'Run prompt evaluation pipeline (Multi-Shot)',
+    description:
+      'Run a dataset of tasks against the LLM to evaluate the prompt with multiple examples.',
+  })
+  public async runEvaluationMultiShot(
+    @Body() runEvaluationMultiShotRequestDto: RunEvaluationMultiShotRequestDto,
+  ) {
+    const response = await this.promptService.runEvaluationMultiShot(
+      runEvaluationMultiShotRequestDto,
     );
     return response;
   }

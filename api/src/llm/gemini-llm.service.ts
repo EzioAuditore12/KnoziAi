@@ -28,7 +28,6 @@ export class GeminiLlmService implements LlmService {
       this.configService.get<string>('GOOGLE_GEMINI_MODEL_THREE') ||
       'gemini-2.5-flash';
 
-    // Increased max tokens and moved configuration potential to configService
     const maxTokens =
       this.configService.get<number>('GOOGLE_MAX_TOKENS') || 8192;
     const temperature =

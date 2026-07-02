@@ -1,13 +1,15 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { z } from 'zod';
 
 import { LLM_SERVICE, type LlmService } from '../llm/interfaces/llm.interface';
 import { GenerateDatasetRequestDto } from './dto/generate-dataset-request.dto';
 import {
   EvaluationTaskDto,
   GenerateDatasetResponseDto,
-  generateDatasetResponseSchema,
 } from './dto/generate-dataset-response.dto';
 import { gradingResponseSchema } from './dto/grading-response.dto';
+import { RunEvaluationMultiShotRequestDto } from './dto/run-evaluation-multi-shot-request.dto';
+import { RunEvaluationOneShotRequestDto } from './dto/run-evaluation-one-shot-request.dto';
 import { RunEvaluationRequestDto } from './dto/run-evaluation-request.dto';
 import {
   EvaluationResultDto,
@@ -16,36 +18,86 @@ import {
 
 @Injectable()
 export class PromptService {
-  constructor(@Inject(LLM_SERVICE) private readonly llmService: LlmService) {}
+  constructor(
+    @Inject(LLM_SERVICE)
+    private readonly llmService: LlmService,
+  ) {}
 
   public async generateEvaluationDataset(
     generateDatasetRequestDto: GenerateDatasetRequestDto,
   ): Promise<GenerateDatasetResponseDto> {
-    const { testCases, query } = generateDatasetRequestDto;
+    const { testCases, taskDescription, promptInputsSpec } =
+      generateDatasetRequestDto;
+
     const promptText = `
-Generate an evaluation dataset for a prompt evaluation. The dataset will be used to evaluate prompts based on the following topic:
-"${query}"
+Generate an evaluation dataset for a prompt evaluation. The dataset will be used to evaluate prompts based on the following task description:
+"${taskDescription}"
 
-Generate an array of JSON objects, each representing a distinct task related to the topic.
-* Focus on tasks that can be solved by writing a single function, a single JSON object, or a single regex
-* Focus on tasks that do not require writing much code
+Generate an array of JSON objects, each representing a distinct test case for the task.
+The JSON object must contain exactly the following keys, populated with realistic test data:
+${Object.entries(promptInputsSpec)
+  .map(([key, desc]) => `- ${key}: ${desc}`)
+  .join('\n')}
 
-Please generate exactly ${testCases} objects.
+Please generate exactly ${testCases} distinct test cases.
 `;
 
-    return await this.llmService.askWithStructuredOutput(
+    // Dynamically build a Zod object schema using the keys from promptInputsSpec
+    const schemaShape: Record<string, z.ZodString> = {};
+    for (const key of Object.keys(promptInputsSpec)) {
+      schemaShape[key] = z.string().describe(promptInputsSpec[key]);
+    }
+
+    const dynamicSchema = z.object({
+      dataset: z
+        .array(z.object({ inputs: z.object(schemaShape) }))
+        .describe('An array of evaluation tasks'),
+    });
+
+    const result = await this.llmService.askWithStructuredOutput(
       promptText,
-      generateDatasetResponseSchema,
+      dynamicSchema,
     );
+
+    // Explicitly cast to the DTO shape since we used a dynamic Zod schema
+    return result as GenerateDatasetResponseDto;
   }
 
   private async runTestCase(
     testCase: EvaluationTaskDto,
+    promptTemplate: string,
+    extraCriteria?: string,
+    examples?: { inputs: Record<string, string>; output: string }[],
   ): Promise<EvaluationResultDto> {
-    const promptText = `Please solve the following task:\n\n${testCase.task}`;
+    // Dynamically replace inputs in the prompt template
+    let promptText = promptTemplate;
+    for (const [key, value] of Object.entries(testCase.inputs)) {
+      promptText = promptText.replace(`{${key}}`, value);
+    }
+
+    if (examples && examples.length > 0) {
+      let examplesText =
+        'Here are some examples of expected inputs and outputs:\n\n';
+      examples.forEach((example, index) => {
+        let exampleInputText = promptTemplate;
+        for (const [key, value] of Object.entries(example.inputs)) {
+          exampleInputText = exampleInputText.replace(`{${key}}`, value);
+        }
+        examplesText += `Example ${index + 1}:\nInput: ${exampleInputText}\nOutput: ${example.output}\n\n`;
+      });
+      promptText = `${examplesText}Now solve this one:\nInput: ${promptText}\nOutput: `;
+    }
+
     const output = await this.llmService.ask(promptText);
 
-    const { score, reasoning } = await this.modelGrader(testCase.task, output);
+    // Provide the original inputs object as JSON string for the grader to evaluate against
+    const taskDescriptionForGrader = JSON.stringify(testCase.inputs, null, 2);
+
+    const { score, reasoning } = await this.modelGrader(
+      taskDescriptionForGrader,
+      output,
+      extraCriteria,
+    );
 
     return {
       output,
@@ -58,6 +110,7 @@ Please generate exactly ${testCases} objects.
   public async modelGrader(
     task: string,
     output: string,
+    extraCriteria?: string,
   ): Promise<{ score: number; reasoning: string }> {
     const promptText = `
 You are an expert software evaluator.
@@ -66,9 +119,10 @@ The score should be between 0 and 10.
 - 10 means the output perfectly solves the task and is exactly what was requested.
 - 0 means the output is completely wrong or unrelated.
 
-Task:
+Task Inputs:
 ${task}
 
+${extraCriteria ? `Additional Grading Criteria:\n${extraCriteria}\n` : ''}
 Output to evaluate:
 ${output}
 `;
@@ -121,9 +175,61 @@ ${output}
       runEvaluationRequestDto,
     );
 
-    const results = await Promise.all(
-      datasetResponse.dataset.map((testCase) => this.runTestCase(testCase)),
+    const { promptTemplate, extraCriteria } = runEvaluationRequestDto;
+
+    const results: EvaluationResultDto[] = [];
+    for (const testCase of datasetResponse.dataset) {
+      results.push(
+        await this.runTestCase(testCase, promptTemplate, extraCriteria),
+      );
+    }
+
+    return { results };
+  }
+
+  public async runEvaluationOneShot(
+    runEvaluationOneShotRequestDto: RunEvaluationOneShotRequestDto,
+  ): Promise<RunEvaluationResponseDto> {
+    const datasetResponse = await this.generateEvaluationDataset(
+      runEvaluationOneShotRequestDto,
     );
+
+    const { promptTemplate, extraCriteria, promptExample } =
+      runEvaluationOneShotRequestDto;
+
+    const results: EvaluationResultDto[] = [];
+    for (const testCase of datasetResponse.dataset) {
+      results.push(
+        await this.runTestCase(testCase, promptTemplate, extraCriteria, [
+          promptExample,
+        ]),
+      );
+    }
+
+    return { results };
+  }
+
+  public async runEvaluationMultiShot(
+    runEvaluationMultiShotRequestDto: RunEvaluationMultiShotRequestDto,
+  ): Promise<RunEvaluationResponseDto> {
+    const datasetResponse = await this.generateEvaluationDataset(
+      runEvaluationMultiShotRequestDto,
+    );
+
+    const { promptTemplate, extraCriteria, promptExamples } =
+      runEvaluationMultiShotRequestDto;
+
+    const results: EvaluationResultDto[] = [];
+    for (const testCase of datasetResponse.dataset) {
+      results.push(
+        await this.runTestCase(
+          testCase,
+          promptTemplate,
+          extraCriteria,
+          promptExamples,
+        ),
+      );
+    }
 
     return { results };
   }
