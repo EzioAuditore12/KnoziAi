@@ -8,4 +8,5 @@ export class InsertProjectDto extends PickType(Project, [
   'fileUrl',
   'fileType',
   'userId',
+  'settings',
 ]) {}

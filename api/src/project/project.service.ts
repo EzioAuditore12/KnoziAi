@@ -4,9 +4,10 @@ import { Document } from '@langchain/core/documents';
 import { HttpService } from '@nestjs/axios';
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { ClientSession, Connection, Model } from 'mongoose';
+import { ClientSession, Connection, Model, type PaginateModel } from 'mongoose';
 import { CloudinaryService } from 'nestjs-cloudinary';
 import { firstValueFrom } from 'rxjs';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 import {
   INGESTION_SERVICE,
   type IngestionService,
@@ -15,6 +16,7 @@ import { mapToDto } from 'src/utils/dto-mapper.util';
 
 import { CreateProjectDto } from './dto/create-project.dto';
 import { InsertProjectDto } from './dto/insert-project.dto';
+import { ProjectListResponseDto } from './dto/project-list-response.dto';
 import { ProjectDto } from './dto/project.dto';
 import { ProjectFileEmbedding } from './entities/project-file-embedding.entity';
 import { Project } from './entities/project.entity';
@@ -30,7 +32,7 @@ export class ProjectService {
     private readonly connection: Connection,
 
     @InjectModel(Project.name)
-    private readonly projectRepository: Model<Project>,
+    private readonly projectRepository: PaginateModel<Project>,
     @InjectModel(ProjectFileEmbedding.name)
     private readonly projectFileEmbeddingRepository: Model<ProjectFileEmbedding>,
 
@@ -49,7 +51,7 @@ export class ProjectService {
     const session = await this.connection.startSession();
 
     try {
-      const { name, description, file } = createProjectDto;
+      const { name, description, file, settings } = createProjectDto;
 
       const uploadedFile =
         await this.cloudinaryService.cloudinaryInstance.uploader.upload(
@@ -62,6 +64,10 @@ export class ProjectService {
         description,
         fileUrl: uploadedFile.url,
         fileType: ProjectFileType.PDF, // For now only pdf
+        settings: {
+          ...settings,
+          embeddingModel: this.ingestionService.embeddingModelName,
+        },
       });
 
       return createdProject;
@@ -90,6 +96,43 @@ export class ProjectService {
     return exists !== null;
   }
 
+  public async getProjectById(
+    projectId: string,
+    userId: string,
+  ): Promise<ProjectDto> {
+    const project = await this.projectRepository.findOne({
+      _id: projectId,
+      userId,
+    });
+
+    if (!project)
+      throw new UnauthorizedException('Project not found or unauthorized');
+
+    return mapToDto(ProjectDto, project);
+  }
+
+  public async getAllProjects(
+    userId: string,
+    paginationDto: PaginationDto,
+  ): Promise<ProjectListResponseDto> {
+    const result = await this.projectRepository.paginate(
+      { userId },
+      {
+        page: paginationDto.page,
+        limit: paginationDto.limit,
+        sort: { createdAt: -1 },
+      },
+    );
+
+    return {
+      ...result,
+      page: result.page ?? paginationDto.page,
+      prevPage: result.prevPage ?? null,
+      nextPage: result.nextPage ?? null,
+      docs: result.docs.map((doc) => mapToDto(ProjectDto, doc)),
+    };
+  }
+
   public async processProjectFile(
     projectId: string,
     userId: string,
@@ -105,6 +148,13 @@ export class ProjectService {
     const tempFilePath = await this.downloadFileToTemp(project.fileUrl);
 
     try {
+      await this.projectRepository.findByIdAndUpdate(projectId, {
+        $set: {
+          'settings.outputDimensionality':
+            this.ingestionService.outputDimensionality,
+        },
+      });
+
       const documents =
         await this.ingestionService.processDocuments(tempFilePath);
 

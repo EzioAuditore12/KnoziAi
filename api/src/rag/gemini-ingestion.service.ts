@@ -21,7 +21,11 @@ import { UnstructuredService } from './unstructured.service';
 export class GeminiIngestionService implements IngestionService {
   private readonly logger = new Logger(GeminiIngestionService.name);
   private readonly documentEmbeddingModel: GoogleGenerativeAIEmbeddings;
-  private readonly tempImageDir = './.public';
+
+  private readonly tempImageDir: string = './.public';
+
+  public readonly embeddingModelName: string = 'gemini-embedding-001';
+  public readonly outputDimensionality: number = 1536;
 
   constructor(
     private readonly configService: ConfigService,
@@ -254,14 +258,12 @@ export class GeminiIngestionService implements IngestionService {
 
   private initializeModel(): GoogleGenerativeAIEmbeddings {
     const apiKey = this.configService.get('GOOGLE_API_KEY');
-    const embeddingModelName = 'gemini-embedding-001';
-    const outputDimensionality = 1536;
 
     return new GoogleGenerativeAIEmbeddings({
       apiKey,
-      model: embeddingModelName,
+      model: this.embeddingModelName,
       taskType: TaskType.RETRIEVAL_DOCUMENT,
-      outputDimensionality,
+      outputDimensionality: this.outputDimensionality,
     });
   }
 }

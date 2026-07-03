@@ -1,11 +1,12 @@
-import { Exclude, Expose, Transform } from 'class-transformer';
+import { Exclude, Expose, Transform, Type } from 'class-transformer';
 
 import { Project } from '../entities/project.entity';
 import { ProjectFileType } from '../enums/project-file-type.enum';
 import { ProjectStatus } from '../enums/project-status.enum';
+import { ProjectSettingsDto } from './project-settings.dto';
 
 @Exclude()
-export class ProjectDto implements Partial<Project> {
+export class ProjectDto implements Omit<Partial<Project>, 'settings'> {
   @Expose({ name: 'id' })
   @Transform(
     ({ obj }: { obj: Project & { id: string } }) =>
@@ -33,6 +34,10 @@ export class ProjectDto implements Partial<Project> {
 
   @Expose()
   status: ProjectStatus;
+
+  @Expose()
+  @Type(() => ProjectSettingsDto)
+  settings: ProjectSettingsDto;
 
   @Expose()
   createdAt: Date;
