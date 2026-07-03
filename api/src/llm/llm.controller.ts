@@ -69,6 +69,36 @@ export class LlmController {
 
   @Throttle({ short: { limit: 5, ttl: minutes(1) } })
   @HttpCode(HttpStatus.OK)
+  @Post('ask-with-code-execution')
+  @ApiOperation({
+    summary: 'Ask LLM with Code Execution Tool',
+    description: 'Use the LLM with the code execution tool.',
+  })
+  public async askWithCodeExecution(@Body() askLlmDto: AskLlmDto) {
+    const response = await this.llmService.askWithCodeExecution(
+      askLlmDto.question,
+    );
+    return {
+      response,
+    };
+  }
+
+  @Throttle({ short: { limit: 5, ttl: minutes(1) } })
+  @HttpCode(HttpStatus.OK)
+  @Post('ask-with-web-search')
+  @ApiOperation({
+    summary: 'Ask LLM with Web Search Tool',
+    description: 'Use the LLM with Google Web Search.',
+  })
+  public async askWithWebSearch(@Body() askLlmDto: AskLlmDto) {
+    const response = await this.llmService.askWithWebSearch(askLlmDto.question);
+    return {
+      response,
+    };
+  }
+
+  @Throttle({ short: { limit: 5, ttl: minutes(1) } })
+  @HttpCode(HttpStatus.OK)
   @Post('ask-with-system-prompt')
   @ApiOperation({
     summary: 'Ask the LLM a question with a custom system prompt',
@@ -95,6 +125,36 @@ export class LlmController {
     @Query('question') question: string,
   ): Observable<MessageEvent> {
     return from(this.llmService.askUsingStream(question)).pipe(
+      map((chunk) => ({ data: chunk }) as MessageEvent),
+    );
+  }
+
+  @Throttle({ short: { limit: 5, ttl: minutes(1) } })
+  @Sse('ask-with-code-execution-stream')
+  @ApiOperation({
+    summary: 'Stream an LLM response with Code Execution',
+    description:
+      'Stream an LLM response using Server-Sent Events (SSE) where the model can execute code. Requires the question as a query parameter.',
+  })
+  public askWithCodeExecutionStream(
+    @Query('question') question: string,
+  ): Observable<MessageEvent> {
+    return from(this.llmService.askWithCodeExecutionStream(question)).pipe(
+      map((chunk) => ({ data: chunk }) as MessageEvent),
+    );
+  }
+
+  @Throttle({ short: { limit: 5, ttl: minutes(1) } })
+  @Sse('ask-with-web-search-stream')
+  @ApiOperation({
+    summary: 'Stream an LLM response with Web Search',
+    description:
+      'Stream an LLM response using Server-Sent Events (SSE) where the model can search the web. Requires the question as a query parameter.',
+  })
+  public askWithWebSearchStream(
+    @Query('question') question: string,
+  ): Observable<MessageEvent> {
+    return from(this.llmService.askWithWebSearchStream(question)).pipe(
       map((chunk) => ({ data: chunk }) as MessageEvent),
     );
   }

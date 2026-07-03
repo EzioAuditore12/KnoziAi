@@ -125,6 +125,77 @@ export class GeminiLlmService implements LlmService {
     return this.extractText(finalResponse.content);
   }
 
+  public async askWithCodeExecution(question: string) {
+    const modelWithTools = this.model.bindTools([{ codeExecution: {} }]);
+
+    const messages: BaseMessage[] = [new HumanMessage(question)];
+    const response = await modelWithTools.invoke(messages);
+
+    const finalResponse = await this.handleToolCalls(
+      response,
+      messages,
+      modelWithTools,
+    );
+    return this.extractText(finalResponse.content);
+  }
+
+  public async askWithWebSearch(question: string): Promise<string> {
+    const modelWithTools = this.model.bindTools([{ googleSearch: {} }]);
+    const messages: BaseMessage[] = [new HumanMessage(question)];
+    const response = await modelWithTools.invoke(messages);
+    return this.extractText(response.content);
+  }
+
+  public async *askWithWebSearchStream(
+    question: string,
+  ): AsyncGenerator<string, void, unknown> {
+    const modelWithTools = this.model.bindTools([{ googleSearch: {} }]);
+    const messages: BaseMessage[] = [new HumanMessage(question)];
+    const stream = await modelWithTools.stream(messages);
+
+    for await (const chunk of stream) {
+      if (typeof chunk.content === 'string') {
+        if (chunk.content) yield chunk.content;
+      } else if (Array.isArray(chunk.content)) {
+        for (const part of chunk.content as any[]) {
+          if (part.type === 'text' && part.text) {
+            yield part.text;
+          }
+        }
+      }
+    }
+  }
+
+  public async *askWithCodeExecutionStream(
+    question: string,
+  ): AsyncGenerator<string, void, unknown> {
+    const modelWithTools = this.model.bindTools([{ codeExecution: {} }]);
+    const messages: BaseMessage[] = [new HumanMessage(question)];
+    const stream = await modelWithTools.stream(messages);
+
+    for await (const chunk of stream) {
+      if (typeof chunk.content === 'string') {
+        if (chunk.content) yield chunk.content;
+      } else if (Array.isArray(chunk.content)) {
+        for (const part of chunk.content as any[]) {
+          if (part.type === 'text' && part.text) {
+            yield part.text;
+          } else if (
+            part.type === 'code_execution_call' &&
+            part.code_execution_call
+          ) {
+            yield `\n\n\`\`\`${part.code_execution_call.language || 'python'}\n${part.code_execution_call.code}\n\`\`\`\n\n`;
+          } else if (
+            part.type === 'code_execution_result' &&
+            part.code_execution_result
+          ) {
+            yield `\n**Result:**\n\`\`\`\n${part.code_execution_result.output}\n\`\`\`\n\n`;
+          }
+        }
+      }
+    }
+  }
+
   public async *askWithToolsAndContextStream(
     messages: BaseMessage[],
   ): AsyncGenerator<string, BaseMessage[], unknown> {

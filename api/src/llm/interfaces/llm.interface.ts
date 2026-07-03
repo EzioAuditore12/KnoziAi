@@ -13,6 +13,18 @@ export interface LlmService {
 
   askWithWeather(question: string): Promise<string>;
 
+  askWithCodeExecution(question: string): Promise<string>;
+
+  askWithCodeExecutionStream(
+    question: string,
+  ): AsyncGenerator<string, void, unknown>;
+
+  askWithWebSearch(question: string): Promise<string>;
+
+  askWithWebSearchStream(
+    question: string,
+  ): AsyncGenerator<string, void, unknown>;
+
   askWithContext(messages: BaseMessage[]): Promise<string>;
 
   askWithToolsAndContext(messages: BaseMessage[]): Promise<BaseMessage[]>;
