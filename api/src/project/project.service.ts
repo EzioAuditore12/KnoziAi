@@ -1,9 +1,10 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { Document } from '@langchain/core/documents';
 import { HttpService } from '@nestjs/axios';
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { Connection, Model } from 'mongoose';
+import { ClientSession, Connection, Model } from 'mongoose';
 import { CloudinaryService } from 'nestjs-cloudinary';
 import { firstValueFrom } from 'rxjs';
 import {
@@ -22,6 +23,8 @@ import { ProjectStatus } from './enums/project-status.enum';
 
 @Injectable()
 export class ProjectService {
+  private readonly tempDir = './.public';
+
   constructor(
     @InjectConnection()
     private readonly connection: Connection,
@@ -65,16 +68,14 @@ export class ProjectService {
     } catch (error) {
       if (session.inTransaction()) await session.abortTransaction();
 
-      if (fs.existsSync(createProjectDto.file.path)) {
+      if (fs.existsSync(createProjectDto.file.path))
         await fs.promises.unlink(createProjectDto.file.path);
-      }
 
       throw error;
     } finally {
       await session.endSession();
-      if (fs.existsSync(createProjectDto.file.path)) {
+      if (fs.existsSync(createProjectDto.file.path))
         await fs.promises.unlink(createProjectDto.file.path);
-      }
     }
   }
 
@@ -98,23 +99,10 @@ export class ProjectService {
       userId,
     });
 
-    if (!project) {
+    if (!project)
       throw new UnauthorizedException('Project not found or unauthorized');
-    }
 
-    const fileUrl = project.fileUrl;
-
-    // Download the PDF from Cloudinary
-    const response = await firstValueFrom(
-      this.httpService.get(fileUrl, { responseType: 'arraybuffer' }),
-    );
-
-    const tempDir = './.public';
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-    const tempFilePath = `${tempDir}/project-file-${crypto.randomUUID()}.pdf`;
-    fs.writeFileSync(tempFilePath, Buffer.from(response.data));
+    const tempFilePath = await this.downloadFileToTemp(project.fileUrl);
 
     try {
       const documents =
@@ -124,38 +112,62 @@ export class ProjectService {
       session.startTransaction();
 
       try {
-        const embeddingsToInsert = documents.map((doc) => ({
-          projectId: project._id,
-          embedding: doc.metadata.embedding,
-          content: doc.pageContent,
-          metadata: {
-            text: doc.metadata.text,
-            images: doc.metadata.images || [],
-            tables: doc.metadata.tables || [],
-          },
-        }));
-
-        await this.projectFileEmbeddingRepository.insertMany(
-          embeddingsToInsert,
-          { session },
+        const embeddingsToInsert = this.mapDocumentsToEmbeddings(
+          project,
+          documents,
         );
+        await this.batchInsertEmbeddings(embeddingsToInsert, session, 50);
 
         project.status = ProjectStatus.COMPLETED;
         await project.save({ session });
 
         await session.commitTransaction();
       } catch (dbError) {
-        if (session.inTransaction()) {
-          await session.abortTransaction();
-        }
+        if (session.inTransaction()) await session.abortTransaction();
         throw dbError;
       } finally {
         await session.endSession();
       }
     } finally {
-      if (fs.existsSync(tempFilePath)) {
-        fs.unlinkSync(tempFilePath);
-      }
+      if (fs.existsSync(tempFilePath)) fs.unlinkSync(tempFilePath);
+    }
+  }
+
+  private async downloadFileToTemp(fileUrl: string): Promise<string> {
+    const response = await firstValueFrom(
+      this.httpService.get(fileUrl, { responseType: 'arraybuffer' }),
+    );
+
+    if (!fs.existsSync(this.tempDir))
+      fs.mkdirSync(this.tempDir, { recursive: true });
+
+    const tempFilePath = `${this.tempDir}/project-file-${crypto.randomUUID()}.pdf`;
+    fs.writeFileSync(tempFilePath, Buffer.from(response.data));
+
+    return tempFilePath;
+  }
+
+  private mapDocumentsToEmbeddings(project: Project, documents: Document[]) {
+    return documents.map((doc) => ({
+      projectId: project._id,
+      embedding: doc.metadata.embedding,
+      content: doc.pageContent,
+      metadata: {
+        text: doc.metadata.text,
+        images: doc.metadata.images || [],
+        tables: doc.metadata.tables || [],
+      },
+    }));
+  }
+
+  private async batchInsertEmbeddings(
+    embeddingsToInsert: Partial<ProjectFileEmbedding>[],
+    session: ClientSession,
+    batchSize: number,
+  ) {
+    for (let i = 0; i < embeddingsToInsert.length; i += batchSize) {
+      const batch = embeddingsToInsert.slice(i, i + batchSize);
+      await this.projectFileEmbeddingRepository.insertMany(batch, { session });
     }
   }
 
