@@ -35,6 +35,7 @@ import throttlerConfig, {
   THROTTLER_CONFIG_NAME,
 } from './config/throttler.config';
 import { LlmModule } from './llm/llm.module';
+import { ProjectModule } from './project/project.module';
 import { PromptModule } from './prompt/prompt.module';
 import { RagModule } from './rag/rag.module';
 import { UserModule } from './user/user.module';
@@ -56,9 +57,10 @@ import { injectConfig } from './utils/inject-config.util';
     }),
     SentryModule.forRoot(),
 
-    NestjsFormDataModule.configAsync(
-      injectConfig<FormDataInterceptorConfig>(FORM_DATA_CONFIG_NAME),
-    ),
+    NestjsFormDataModule.configAsync({
+      isGlobal: true,
+      ...injectConfig<FormDataInterceptorConfig>(FORM_DATA_CONFIG_NAME),
+    }),
 
     MongooseModule.forRootAsync(
       injectConfig<MongooseModuleOptions>(MONGOOSE_CONFIG_NAME),
@@ -91,6 +93,7 @@ import { injectConfig } from './utils/inject-config.util';
     ChatModule,
     PromptModule,
     RagModule,
+    ProjectModule,
   ],
   controllers: [AppController],
   providers: [

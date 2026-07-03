@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 
 import { ProjectFileType } from '../enums/project-file-type.enum';
+import { ProjectStatus } from '../enums/project-status.enum';
 
 export const PROJECT_TABLE_NAME = 'projects';
 
@@ -44,6 +45,13 @@ export class Project {
     required: true,
   })
   fileType: ProjectFileType;
+
+  @Prop({
+    type: String,
+    enum: ProjectStatus,
+    default: ProjectStatus.PENDING,
+  })
+  status: ProjectStatus;
 
   createdAt: Date;
 

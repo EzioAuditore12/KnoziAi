@@ -5,8 +5,8 @@ import { Model } from 'mongoose';
 import { ProjectFileEmbedding } from './entities/project-file-embedding.entity';
 
 @Injectable()
-export class RagSetupService implements OnModuleInit {
-  private readonly logger = new Logger(RagSetupService.name);
+export class ProjectSetupService implements OnModuleInit {
+  private readonly logger = new Logger(ProjectSetupService.name);
 
   constructor(
     @InjectModel(ProjectFileEmbedding.name)
