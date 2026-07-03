@@ -48,6 +48,8 @@ lerna-debug.log*
 
 # User Uploads
 .uploads
+.public
+
 # Runtime data
 pids
 *.pid
