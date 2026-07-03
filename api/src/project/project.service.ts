@@ -1,11 +1,11 @@
-import fs from 'node:fs';
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import { HttpService } from '@nestjs/axios';
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import { firstValueFrom } from 'rxjs';
 import { Connection, Model } from 'mongoose';
 import { CloudinaryService } from 'nestjs-cloudinary';
+import { firstValueFrom } from 'rxjs';
 import {
   INGESTION_SERVICE,
   type IngestionService,
@@ -89,8 +89,14 @@ export class ProjectService {
     return exists !== null;
   }
 
-  public async processProjectFile(projectId: string, userId: string): Promise<void> {
-    const project = await this.projectRepository.findOne({ _id: projectId, userId });
+  public async processProjectFile(
+    projectId: string,
+    userId: string,
+  ): Promise<void> {
+    const project = await this.projectRepository.findOne({
+      _id: projectId,
+      userId,
+    });
 
     if (!project) {
       throw new UnauthorizedException('Project not found or unauthorized');
@@ -100,7 +106,7 @@ export class ProjectService {
 
     // Download the PDF from Cloudinary
     const response = await firstValueFrom(
-      this.httpService.get(fileUrl, { responseType: 'arraybuffer' })
+      this.httpService.get(fileUrl, { responseType: 'arraybuffer' }),
     );
 
     const tempDir = './.public';
@@ -111,13 +117,14 @@ export class ProjectService {
     fs.writeFileSync(tempFilePath, Buffer.from(response.data));
 
     try {
-      const documents = await this.ingestionService.processDocuments(tempFilePath);
+      const documents =
+        await this.ingestionService.processDocuments(tempFilePath);
 
       const session = await this.connection.startSession();
       session.startTransaction();
 
       try {
-        const embeddingsToInsert = documents.map(doc => ({
+        const embeddingsToInsert = documents.map((doc) => ({
           projectId: project._id,
           embedding: doc.metadata.embedding,
           content: doc.pageContent,
@@ -128,7 +135,10 @@ export class ProjectService {
           },
         }));
 
-        await this.projectFileEmbeddingRepository.insertMany(embeddingsToInsert, { session });
+        await this.projectFileEmbeddingRepository.insertMany(
+          embeddingsToInsert,
+          { session },
+        );
 
         project.status = ProjectStatus.COMPLETED;
         await project.save({ session });

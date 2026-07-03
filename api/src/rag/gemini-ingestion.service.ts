@@ -106,8 +106,7 @@ export class GeminiIngestionService implements IngestionService {
     }
 
     const texts = langchainDocuments.map((doc) => doc.pageContent);
-    const embeddings =
-      await this.documentEmbeddingModel.embedDocuments(texts);
+    const embeddings = await this.documentEmbeddingModel.embedDocuments(texts);
 
     langchainDocuments.forEach((doc, idx) => {
       doc.metadata.embedding = embeddings[idx];

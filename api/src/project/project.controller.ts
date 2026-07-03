@@ -3,10 +3,10 @@ import {
   Controller,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Req,
   UseGuards,
-  Param,
 } from '@nestjs/common';
 import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { FormDataRequest } from 'nestjs-form-data';
@@ -45,7 +45,8 @@ export class ProjectController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Process project file embeddings',
-    description: 'Downloads the project PDF, extracts text and tables, generates embeddings, and saves them to the database.',
+    description:
+      'Downloads the project PDF, extracts text and tables, generates embeddings, and saves them to the database.',
   })
   @UseGuards(JwtAuthGuard)
   public async processFileEmbedding(
