@@ -1,15 +1,15 @@
-import { ChatGoogleGenerativeAI } from '@dakshp1234/langchain-google-genai';
 import {
   AIMessage,
   BaseMessage,
-  BaseMessageLike,
+  HumanMessage,
   ToolCall,
   ToolMessage,
 } from '@langchain/core/messages';
 import { ChatPromptTemplate } from '@langchain/core/prompts';
 import { Runnable } from '@langchain/core/runnables';
 import { DynamicTool, StructuredTool } from '@langchain/core/tools';
-import { Injectable, Logger } from '@nestjs/common';
+import { ChatGoogle } from '@langchain/google';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { z } from 'zod';
 
@@ -24,7 +24,7 @@ import { WeatherTool } from './tools/weather.tool';
 
 @Injectable()
 export class GeminiLlmService implements LlmService {
-  private model: ChatGoogleGenerativeAI;
+  private model: ChatGoogle;
 
   constructor(
     private readonly configService: ConfigService,
@@ -96,7 +96,7 @@ export class GeminiLlmService implements LlmService {
     const modelWithTools = this.model.bindTools([this.currentTimeTool.get()]);
 
     // 2. Send the initial question to the model
-    const messages: BaseMessageLike[] = [['human', question]];
+    const messages: BaseMessage[] = [new HumanMessage(question)];
     const response = await modelWithTools.invoke(messages);
 
     // 3. Handle potential tool calls and get the final response
@@ -113,7 +113,7 @@ export class GeminiLlmService implements LlmService {
     const modelWithTools = this.model.bindTools([this.weatherTool.get()]);
 
     // 2. Send the initial question to the model
-    const messages: BaseMessageLike[] = [['human', question]];
+    const messages: BaseMessage[] = [new HumanMessage(question)];
     const response = await modelWithTools.invoke(messages);
 
     // 3. Handle potential tool calls and get the final response
@@ -134,7 +134,7 @@ export class GeminiLlmService implements LlmService {
     ]);
 
     const newMessages: BaseMessage[] = [];
-    const conversation: BaseMessageLike[] = [...messages];
+    const conversation: BaseMessage[] = [...messages];
 
     const stream = await modelWithTools.stream(conversation);
     let fullResponse: any = null;
@@ -204,7 +204,7 @@ export class GeminiLlmService implements LlmService {
     ]);
 
     const newMessages: BaseMessage[] = [];
-    const conversation: BaseMessageLike[] = [...messages];
+    const conversation: BaseMessage[] = [...messages];
 
     const response = await modelWithTools.invoke(conversation);
     newMessages.push(response);
@@ -239,7 +239,7 @@ export class GeminiLlmService implements LlmService {
 
   private initializeModel(
     tools?: (StructuredTool | DynamicTool)[],
-  ): ChatGoogleGenerativeAI {
+  ): ChatGoogle {
     const apiKey = this.configService.get<string>('GOOGLE_API_KEY')!;
     const modelOne = this.configService.get<string>('GOOGLE_GEMINI_MODEL_ONE')!;
     const modelTwo = this.configService.get<string>('GOOGLE_GEMINI_MODEL_TWO')!;
@@ -251,7 +251,7 @@ export class GeminiLlmService implements LlmService {
     const temperature = this.configService.get<number>('GOOGLE_TEMPERATURE');
 
     const createModel = (modelName: string) => {
-      const baseInstance = new ChatGoogleGenerativeAI(modelName, {
+      const baseInstance = new ChatGoogle(modelName, {
         apiKey,
         temperature,
         maxOutputTokens: maxTokens, // Fixed truncation wall
@@ -259,15 +259,13 @@ export class GeminiLlmService implements LlmService {
       });
 
       if (tools && tools.length > 0)
-        return baseInstance.bindTools(
-          tools,
-        ) as unknown as ChatGoogleGenerativeAI;
+        return baseInstance.bindTools(tools) as unknown as ChatGoogle;
 
       return baseInstance;
     };
 
     const baseModel = createModel(modelOne);
-    const fallbacks: ChatGoogleGenerativeAI[] = [];
+    const fallbacks: ChatGoogle[] = [];
 
     if (modelTwo) fallbacks.push(createModel(modelTwo));
     if (modelThree) fallbacks.push(createModel(modelThree));
@@ -287,7 +285,7 @@ export class GeminiLlmService implements LlmService {
       });
     };
 
-    return fallbackModel as unknown as ChatGoogleGenerativeAI;
+    return fallbackModel as unknown as ChatGoogle;
   }
 
   private extractText(content: unknown): string {
@@ -304,7 +302,7 @@ export class GeminiLlmService implements LlmService {
 
   private async executeRequestedTools(
     toolCalls: ToolCall[],
-    messages: BaseMessageLike[],
+    messages: BaseMessage[],
   ): Promise<void> {
     for (const toolCall of toolCalls) {
       if (toolCall.name === this.currentTimeTool.toolName) {
@@ -313,32 +311,34 @@ export class GeminiLlmService implements LlmService {
         const toolResult = await tool.invoke(toolCall.args);
 
         // Append the tool's result back into the conversation history
-        messages.push({
-          role: 'tool',
-          content: toolResult,
-          tool_call_id: toolCall.id,
-          name: toolCall.name,
-        });
+        messages.push(
+          new ToolMessage({
+            content: toolResult,
+            tool_call_id: toolCall.id ?? '',
+            name: toolCall.name,
+          }),
+        );
       } else if (toolCall.name === this.weatherTool.toolName) {
         const tool = this.weatherTool.get();
         // Invoke the tool with the arguments provided by the model
         const toolResult = await tool.invoke(toolCall.args);
 
         // Append the tool's result back into the conversation history
-        messages.push({
-          role: 'tool',
-          content: toolResult,
-          tool_call_id: toolCall.id,
-          name: toolCall.name,
-        });
+        messages.push(
+          new ToolMessage({
+            content: toolResult,
+            tool_call_id: toolCall.id ?? '',
+            name: toolCall.name,
+          }),
+        );
       }
     }
   }
 
   private async handleToolCalls<T extends AIMessage>(
     response: T,
-    messages: BaseMessageLike[],
-    modelWithTools: Runnable<BaseMessageLike[], T>,
+    messages: BaseMessage[],
+    modelWithTools: Runnable<any, T>,
   ): Promise<T> {
     // Check if the model decided to call any tools
     if (response.tool_calls && response.tool_calls.length > 0) {

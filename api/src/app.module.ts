@@ -11,6 +11,10 @@ import {
   ThrottlerModuleOptions,
 } from '@nestjs/throttler';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
+import {
+  FormDataInterceptorConfig,
+  NestjsFormDataModule,
+} from 'nestjs-form-data';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -18,6 +22,9 @@ import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
 import bullmqConfig, { BULLMQ_CONFIG_NAME } from './config/bullmq.config';
 import cacheConfig, { CACHE_CONFIG_NAME } from './config/cache.config';
+import formDataConfig, {
+  FORM_DATA_CONFIG_NAME,
+} from './config/form-data.config';
 import mongooseConfig, { MONGOOSE_CONFIG_NAME } from './config/mongoose.config';
 import redisConfig, { REDIS_CONFIG_NAME } from './config/redis.config';
 import throttlerConfig, {
@@ -42,6 +49,7 @@ const injectConfig = <T>(configName: string) => ({
     ConfigModule.forRoot({
       isGlobal: true,
       load: [
+        formDataConfig,
         mongooseConfig,
         throttlerConfig,
         cacheConfig,
@@ -50,6 +58,10 @@ const injectConfig = <T>(configName: string) => ({
       ],
     }),
     SentryModule.forRoot(),
+
+    NestjsFormDataModule.configAsync(
+      injectConfig<FormDataInterceptorConfig>(FORM_DATA_CONFIG_NAME),
+    ),
 
     MongooseModule.forRootAsync(
       injectConfig<MongooseModuleOptions>(MONGOOSE_CONFIG_NAME),

@@ -30,7 +30,9 @@ import { ChatHistoryResponseDto } from './dto/chat-history-response.dto';
 export class ChatController {
   constructor(
     private readonly chatService: ChatService,
-    @InjectRedis() private readonly redis: Redis,
+
+    @InjectRedis()
+    private readonly redis: Redis,
   ) {}
 
   @Sse('stream/:chatId')
