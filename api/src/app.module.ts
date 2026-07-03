@@ -2,7 +2,7 @@ import { RedisModule, RedisModuleOptions } from '@nestjs-modules/ioredis';
 import { BullModule, BullRootModuleOptions } from '@nestjs/bullmq';
 import { CacheModule, CacheModuleOptions } from '@nestjs/cache-manager';
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { MongooseModule, MongooseModuleOptions } from '@nestjs/mongoose';
 import {
@@ -32,17 +32,9 @@ import throttlerConfig, {
 } from './config/throttler.config';
 import { LlmModule } from './llm/llm.module';
 import { PromptModule } from './prompt/prompt.module';
+import { RagModule } from './rag/rag.module';
 import { UserModule } from './user/user.module';
-
-const injectConfig = <T>(configName: string) => ({
-  imports: [ConfigModule],
-  inject: [ConfigService],
-  useFactory: (configService: ConfigService) => {
-    const config = configService.get<T>(configName)!;
-    console.log(`[ConfigFactory] Resolved config for ${configName}:`, config);
-    return config;
-  },
-});
+import { injectConfig } from './utils/inject-config.util';
 
 @Module({
   imports: [
@@ -88,6 +80,7 @@ const injectConfig = <T>(configName: string) => ({
     LlmModule,
     ChatModule,
     PromptModule,
+    RagModule,
   ],
   controllers: [AppController],
   providers: [

@@ -96,6 +96,12 @@ export class EnvironmentVariables {
   @IsString()
   @IsOptional()
   WEATHER_DEFAULT_LOCATION: string = 'Delhi';
+
+  @IsString()
+  UNSTRUCTURED_API_KEY: string;
+
+  @IsUrl({ require_tld: false })
+  UNSTRUCTURED_API_ENDPOINT: string;
 }
 
 export function validate(config: Record<string, unknown>) {
