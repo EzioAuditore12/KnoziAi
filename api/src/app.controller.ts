@@ -1,6 +1,8 @@
+import { unlink } from 'node:fs/promises';
 import { Body, Controller, Get, Post, Query } from '@nestjs/common';
 import { ApiConsumes } from '@nestjs/swagger';
-import { FileSystemStoredFile, FormDataRequest } from 'nestjs-form-data';
+import { CloudinaryService } from 'nestjs-cloudinary';
+import { FormDataRequest } from 'nestjs-form-data';
 
 import { AppService } from './app.service';
 import { GetCacheDto } from './common/dto/get-cache.dto';
@@ -9,7 +11,10 @@ import { UploadFileDto } from './common/dto/upload-file.dto';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly appService: AppService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
 
   @Get()
   public getHello(): string {
@@ -36,15 +41,22 @@ export class AppController {
   @Post('upload-file')
   @ApiConsumes('multipart/form-data')
   @FormDataRequest()
-  public uploadFile(@Body() uploadFileDto: UploadFileDto) {
+  public async uploadFile(@Body() uploadFileDto: UploadFileDto) {
     // The file is already safely written to your './uploads' disk folder here
     const savedFile = uploadFileDto.file;
 
+    const uploadedFile =
+      await this.cloudinaryService.cloudinaryInstance.uploader.upload(
+        savedFile.path,
+      );
+
+    await unlink(savedFile.path);
+
     return {
-      message: 'File saved to disk successfully!',
+      message: 'File uploaded to Cloudinary successfully!',
       originalName: savedFile.originalName,
-      savedPath: savedFile.path, // This shows the actual path on your server
       size: savedFile.size,
+      url: uploadedFile.url,
     };
   }
 }

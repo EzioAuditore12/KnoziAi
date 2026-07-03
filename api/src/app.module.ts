@@ -11,6 +11,7 @@ import {
   ThrottlerModuleOptions,
 } from '@nestjs/throttler';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
+import { CloudinaryModule, CloudinaryModuleOptions } from 'nestjs-cloudinary';
 import {
   FormDataInterceptorConfig,
   NestjsFormDataModule,
@@ -22,6 +23,9 @@ import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
 import bullmqConfig, { BULLMQ_CONFIG_NAME } from './config/bullmq.config';
 import cacheConfig, { CACHE_CONFIG_NAME } from './config/cache.config';
+import cloudinaryConfig, {
+  CLOUDINARY_CONFIG_NAME,
+} from './config/cloudinary.config';
 import formDataConfig, {
   FORM_DATA_CONFIG_NAME,
 } from './config/form-data.config';
@@ -41,6 +45,7 @@ import { injectConfig } from './utils/inject-config.util';
     ConfigModule.forRoot({
       isGlobal: true,
       load: [
+        cloudinaryConfig,
         formDataConfig,
         mongooseConfig,
         throttlerConfig,
@@ -74,6 +79,11 @@ import { injectConfig } from './utils/inject-config.util';
     RedisModule.forRootAsync(
       injectConfig<RedisModuleOptions>(REDIS_CONFIG_NAME),
     ),
+
+    CloudinaryModule.forRootAsync({
+      isGlobal: true,
+      ...injectConfig<CloudinaryModuleOptions>(CLOUDINARY_CONFIG_NAME),
+    }),
 
     UserModule,
     AuthModule,

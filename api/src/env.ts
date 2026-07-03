@@ -102,6 +102,15 @@ export class EnvironmentVariables {
 
   @IsUrl({ require_tld: false })
   UNSTRUCTURED_API_ENDPOINT: string;
+
+  @IsString()
+  CLOUDINARY_CLOUD_NAME: string;
+
+  @IsString()
+  CLOUDINARY_API_KEY: string;
+
+  @IsString()
+  CLOUDINARY_API_SECRET: string;
 }
 
 export function validate(config: Record<string, unknown>) {

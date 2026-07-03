@@ -6,4 +6,5 @@ onlyBuiltDependencies:
   - '@sentry/cli'
   - '@sentry/node-cpu-profiler'
   - msgpackr-extract
+  - sharp
   - unrs-resolver
