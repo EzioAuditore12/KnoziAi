@@ -35,33 +35,23 @@ export class GeminiLlmService implements LlmService {
   }
 
   public async ask(question: string): Promise<string> {
-    const response = await this.model.invoke(question);
-    return this.extractText(response.content);
+    return this.invokeAndExtract(question);
   }
 
   public async askWithContext(messages: BaseMessage[]): Promise<string> {
-    const response = await this.model.invoke(messages);
-    return this.extractText(response.content);
+    return this.invokeAndExtract(messages);
   }
 
   public async *askUsingStream(
     question: string,
   ): AsyncGenerator<string, void, unknown> {
-    const stream = await this.model.stream(question);
-    for await (const chunk of stream) {
-      const content = chunk.content;
-      yield content ? content.toString() : chunk.toString();
-    }
+    yield* this.streamSimpleChunks(await this.model.stream(question));
   }
 
   public async *askWithContextUsingStream(
     messages: BaseMessage[],
   ): AsyncGenerator<string, void, unknown> {
-    const stream = await this.model.stream(messages);
-    for await (const chunk of stream) {
-      const content = chunk.content;
-      yield content ? content.toString() : chunk.toString();
-    }
+    yield* this.streamSimpleChunks(await this.model.stream(messages));
   }
 
   public async askWithSystemPrompt(
@@ -92,57 +82,22 @@ export class GeminiLlmService implements LlmService {
   }
 
   public async askWithCurrentDateTime(question: string): Promise<string> {
-    // 1. Bind tools to the model ONLY for this specific request
-    const modelWithTools = this.model.bindTools([this.currentTimeTool.get()]);
-
-    // 2. Send the initial question to the model
-    const messages: BaseMessage[] = [new HumanMessage(question)];
-    const response = await modelWithTools.invoke(messages);
-
-    // 3. Handle potential tool calls and get the final response
-    const finalResponse = await this.handleToolCalls(
-      response,
-      messages,
-      modelWithTools,
-    );
-    return this.extractText(finalResponse.content);
+    return this.invokeWithToolsAndHandle(question, [
+      this.currentTimeTool.get(),
+    ]);
   }
 
   public async askWithWeather(question: string): Promise<string> {
-    // 1. Bind tools to the model ONLY for this specific request
-    const modelWithTools = this.model.bindTools([this.weatherTool.get()]);
-
-    // 2. Send the initial question to the model
-    const messages: BaseMessage[] = [new HumanMessage(question)];
-    const response = await modelWithTools.invoke(messages);
-
-    // 3. Handle potential tool calls and get the final response
-    const finalResponse = await this.handleToolCalls(
-      response,
-      messages,
-      modelWithTools,
-    );
-    return this.extractText(finalResponse.content);
+    return this.invokeWithToolsAndHandle(question, [this.weatherTool.get()]);
   }
 
-  public async askWithCodeExecution(question: string) {
-    const modelWithTools = this.model.bindTools([{ codeExecution: {} }]);
-
-    const messages: BaseMessage[] = [new HumanMessage(question)];
-    const response = await modelWithTools.invoke(messages);
-
-    const finalResponse = await this.handleToolCalls(
-      response,
-      messages,
-      modelWithTools,
-    );
-    return this.extractText(finalResponse.content);
+  public async askWithCodeExecution(question: string): Promise<string> {
+    return this.invokeWithToolsAndHandle(question, [{ codeExecution: {} }]);
   }
 
   public async askWithWebSearch(question: string): Promise<string> {
     const modelWithTools = this.model.bindTools([{ googleSearch: {} }]);
-    const messages: BaseMessage[] = [new HumanMessage(question)];
-    const response = await modelWithTools.invoke(messages);
+    const response = await modelWithTools.invoke([new HumanMessage(question)]);
     return this.extractText(response.content);
   }
 
@@ -150,29 +105,118 @@ export class GeminiLlmService implements LlmService {
     question: string,
   ): AsyncGenerator<string, void, unknown> {
     const modelWithTools = this.model.bindTools([{ googleSearch: {} }]);
-    const messages: BaseMessage[] = [new HumanMessage(question)];
-    const stream = await modelWithTools.stream(messages);
-
-    for await (const chunk of stream) {
-      if (typeof chunk.content === 'string') {
-        if (chunk.content) yield chunk.content;
-      } else if (Array.isArray(chunk.content)) {
-        for (const part of chunk.content as any[]) {
-          if (part.type === 'text' && part.text) {
-            yield part.text;
-          }
-        }
-      }
-    }
+    yield* this.streamComplexChunks(
+      await modelWithTools.stream([new HumanMessage(question)]),
+    );
   }
 
   public async *askWithCodeExecutionStream(
     question: string,
   ): AsyncGenerator<string, void, unknown> {
     const modelWithTools = this.model.bindTools([{ codeExecution: {} }]);
-    const messages: BaseMessage[] = [new HumanMessage(question)];
-    const stream = await modelWithTools.stream(messages);
+    yield* this.streamComplexChunks(
+      await modelWithTools.stream([new HumanMessage(question)]),
+    );
+  }
 
+  public async *askWithToolsAndContextStream(
+    messages: BaseMessage[],
+  ): AsyncGenerator<string, BaseMessage[], unknown> {
+    const modelWithTools = this.model.bindTools([
+      this.currentTimeTool.get(),
+      this.weatherTool.get(),
+    ]);
+    const conversation: BaseMessage[] = [...messages];
+    const newMessages: BaseMessage[] = [];
+
+    const { fullResponse } = yield* this.streamChunksAndAccumulate(
+      await modelWithTools.stream(conversation),
+    );
+
+    if (fullResponse) {
+      newMessages.push(fullResponse);
+
+      if (fullResponse.tool_calls && fullResponse.tool_calls.length > 0) {
+        conversation.push(fullResponse);
+        await this.executeRequestedTools(fullResponse.tool_calls, conversation);
+        newMessages.push(
+          ...conversation.slice(
+            conversation.length - fullResponse.tool_calls.length,
+          ),
+        );
+
+        const { fullResponse: secondResponse } =
+          yield* this.streamChunksAndAccumulate(
+            await modelWithTools.stream(conversation),
+          );
+        if (secondResponse) newMessages.push(secondResponse);
+      }
+    }
+    return newMessages;
+  }
+
+  public async askWithToolsAndContext(
+    messages: BaseMessage[],
+  ): Promise<BaseMessage[]> {
+    const modelWithTools = this.model.bindTools([
+      this.currentTimeTool.get(),
+      this.weatherTool.get(),
+    ]);
+    const conversation: BaseMessage[] = [...messages];
+    const newMessages: BaseMessage[] = [];
+
+    const response = await modelWithTools.invoke(conversation);
+    newMessages.push(response);
+
+    if (response.tool_calls && response.tool_calls.length > 0) {
+      conversation.push(response);
+      await this.executeRequestedTools(response.tool_calls, conversation);
+      newMessages.push(
+        ...conversation.slice(conversation.length - response.tool_calls.length),
+      );
+
+      const finalResponse = await modelWithTools.invoke(conversation);
+      newMessages.push(finalResponse);
+    }
+    return newMessages;
+  }
+
+  // --- PRIVATE HELPER METHODS ---
+
+  private async invokeAndExtract(
+    input: string | BaseMessage[],
+  ): Promise<string> {
+    const response = await this.model.invoke(input);
+    return this.extractText(response.content);
+  }
+
+  private async invokeWithToolsAndHandle(
+    question: string,
+    tools: any[],
+  ): Promise<string> {
+    const modelWithTools = this.model.bindTools(tools);
+    const messages: BaseMessage[] = [new HumanMessage(question)];
+    const response = await modelWithTools.invoke(messages);
+    const finalResponse = await this.handleToolCalls(
+      response,
+      messages,
+      modelWithTools,
+    );
+    return this.extractText(finalResponse.content);
+  }
+
+  private async *streamSimpleChunks(
+    stream: AsyncIterable<any>,
+  ): AsyncGenerator<string, void, unknown> {
+    for await (const chunk of stream) {
+      const content = chunk.content;
+      yield content ? content.toString() : chunk.toString();
+    }
+  }
+
+  private async *streamComplexChunks(
+    stream: AsyncIterable<any>,
+  ): AsyncGenerator<string, void, unknown> {
     for await (const chunk of stream) {
       if (typeof chunk.content === 'string') {
         if (chunk.content) yield chunk.content;
@@ -196,20 +240,10 @@ export class GeminiLlmService implements LlmService {
     }
   }
 
-  public async *askWithToolsAndContextStream(
-    messages: BaseMessage[],
-  ): AsyncGenerator<string, BaseMessage[], unknown> {
-    const modelWithTools = this.model.bindTools([
-      this.currentTimeTool.get(),
-      this.weatherTool.get(),
-    ]);
-
-    const newMessages: BaseMessage[] = [];
-    const conversation: BaseMessage[] = [...messages];
-
-    const stream = await modelWithTools.stream(conversation);
+  private async *streamChunksAndAccumulate(
+    stream: AsyncIterable<any>,
+  ): AsyncGenerator<string, { fullResponse: any }, unknown> {
     let fullResponse: any = null;
-
     for await (const chunk of stream) {
       if (!fullResponse) fullResponse = chunk;
       else fullResponse = fullResponse.concat(chunk);
@@ -219,93 +253,7 @@ export class GeminiLlmService implements LlmService {
         yield typeof content === 'string' ? content : String(content);
       }
     }
-
-    if (fullResponse) {
-      newMessages.push(fullResponse);
-
-      if (fullResponse.tool_calls && fullResponse.tool_calls.length > 0) {
-        conversation.push(fullResponse);
-
-        for (const toolCall of fullResponse.tool_calls) {
-          let toolResult = '';
-          if (toolCall.name === this.currentTimeTool.toolName) {
-            toolResult = await this.currentTimeTool.get().invoke(toolCall.args);
-          } else if (toolCall.name === this.weatherTool.toolName) {
-            toolResult = await this.weatherTool.get().invoke(toolCall.args);
-          }
-
-          const toolMessage = new ToolMessage({
-            content: toolResult,
-            tool_call_id: toolCall.id ?? '',
-            name: toolCall.name,
-          });
-
-          conversation.push(toolMessage);
-          newMessages.push(toolMessage);
-        }
-
-        const secondStream = await modelWithTools.stream(conversation);
-        let secondFullResponse: any = null;
-
-        for await (const chunk of secondStream) {
-          if (!secondFullResponse) secondFullResponse = chunk;
-          else secondFullResponse = secondFullResponse.concat(chunk);
-
-          const content = chunk.content;
-          if (content) {
-            yield typeof content === 'string' ? content : String(content);
-          }
-        }
-
-        if (secondFullResponse) {
-          newMessages.push(secondFullResponse);
-        }
-      }
-    }
-
-    return newMessages;
-  }
-
-  public async askWithToolsAndContext(
-    messages: BaseMessage[],
-  ): Promise<BaseMessage[]> {
-    const modelWithTools = this.model.bindTools([
-      this.currentTimeTool.get(),
-      this.weatherTool.get(),
-    ]);
-
-    const newMessages: BaseMessage[] = [];
-    const conversation: BaseMessage[] = [...messages];
-
-    const response = await modelWithTools.invoke(conversation);
-    newMessages.push(response);
-
-    if (response.tool_calls && response.tool_calls.length > 0) {
-      conversation.push(response);
-
-      for (const toolCall of response.tool_calls) {
-        let toolResult = '';
-        if (toolCall.name === this.currentTimeTool.toolName) {
-          toolResult = await this.currentTimeTool.get().invoke(toolCall.args);
-        } else if (toolCall.name === this.weatherTool.toolName) {
-          toolResult = await this.weatherTool.get().invoke(toolCall.args);
-        }
-
-        const toolMessage = new ToolMessage({
-          content: toolResult,
-          tool_call_id: toolCall.id ?? '',
-          name: toolCall.name,
-        });
-
-        conversation.push(toolMessage);
-        newMessages.push(toolMessage);
-      }
-
-      const finalResponse = await modelWithTools.invoke(conversation);
-      newMessages.push(finalResponse);
-    }
-
-    return newMessages;
+    return { fullResponse };
   }
 
   private initializeModel(
@@ -378,10 +326,7 @@ export class GeminiLlmService implements LlmService {
     for (const toolCall of toolCalls) {
       if (toolCall.name === this.currentTimeTool.toolName) {
         const tool = this.currentTimeTool.get();
-        // Invoke the tool with the arguments provided by the model
         const toolResult = await tool.invoke(toolCall.args);
-
-        // Append the tool's result back into the conversation history
         messages.push(
           new ToolMessage({
             content: toolResult,
@@ -391,10 +336,7 @@ export class GeminiLlmService implements LlmService {
         );
       } else if (toolCall.name === this.weatherTool.toolName) {
         const tool = this.weatherTool.get();
-        // Invoke the tool with the arguments provided by the model
         const toolResult = await tool.invoke(toolCall.args);
-
-        // Append the tool's result back into the conversation history
         messages.push(
           new ToolMessage({
             content: toolResult,
@@ -411,18 +353,11 @@ export class GeminiLlmService implements LlmService {
     messages: BaseMessage[],
     modelWithTools: Runnable<any, T>,
   ): Promise<T> {
-    // Check if the model decided to call any tools
     if (response.tool_calls && response.tool_calls.length > 0) {
-      // Append the model's tool call request to the conversation history
       messages.push(response);
-
-      // Execute all requested tools
       await this.executeRequestedTools(response.tool_calls, messages);
-
-      // Send the conversation back to the model so it can formulate a final answer using the tool data
       return await modelWithTools.invoke(messages);
     }
-
     return response;
   }
 }
