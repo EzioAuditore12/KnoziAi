@@ -6,6 +6,7 @@ import { GeminiLlmService } from './gemini-llm.service';
 import { LLM_SERVICE } from './interfaces/llm.interface';
 import { LlmController } from './llm.controller';
 import { McpService } from './mcp.service';
+import { DocumentPromptProvider } from './prompts/document.prompt';
 import { OpenWeatherProvider } from './providers/openweather.provider';
 import { DocumentsResourceProvider } from './resources/documents.resource';
 import { CurrentTimeTool } from './tools/current-time.tool';
@@ -17,7 +18,7 @@ import { WeatherTool } from './tools/weather.tool';
   imports: [
     HttpModule,
     McpModule.forFeature(
-      [MathTool, StatusTool, DocumentsResourceProvider],
+      [MathTool, StatusTool, DocumentsResourceProvider, DocumentPromptProvider],
       'KnoziAi MCP Server',
     ),
   ],
@@ -34,6 +35,7 @@ import { WeatherTool } from './tools/weather.tool';
     StatusTool,
     MathTool,
     DocumentsResourceProvider,
+    DocumentPromptProvider,
   ],
   exports: [LLM_SERVICE, CurrentTimeTool, WeatherTool, McpService],
 })

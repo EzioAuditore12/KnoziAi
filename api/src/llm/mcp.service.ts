@@ -47,6 +47,28 @@ export class McpService implements OnModuleDestroy {
     }
   }
 
+  public async listPrompts() {
+    try {
+      await this.mcpClient.initializeConnections();
+      const client = await this.mcpClient.getClient('localNestServer');
+      return await client?.listPrompts();
+    } catch (error) {
+      this.logger.warn(`Could not fetch MCP prompts`);
+      return { prompts: [] };
+    }
+  }
+
+  public async getPrompt(name: string, args?: Record<string, string>) {
+    try {
+      await this.mcpClient.initializeConnections();
+      const client = await this.mcpClient.getClient('localNestServer');
+      return await client?.getPrompt({ name, arguments: args });
+    } catch (error) {
+      this.logger.error(`Failed to read prompt ${name}`, error);
+      return null;
+    }
+  }
+
   async onModuleDestroy() {
     await this.mcpClient.close();
   }

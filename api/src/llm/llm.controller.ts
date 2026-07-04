@@ -1,5 +1,6 @@
 import { unlink } from 'node:fs/promises';
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -338,5 +339,39 @@ export class LlmController {
   public async readMcpResource(@Query('uri') uri: string) {
     const content = await this.mcpService.readMcpResource(uri);
     return { uri, content };
+  }
+
+  @Get('mcp-prompts')
+  @ApiOperation({ summary: 'List all available MCP Prompts' })
+  public async getMcpPrompts() {
+    const result = await this.mcpService.listPrompts();
+    return { status: 'connected', prompts: result?.prompts || [] };
+  }
+
+  @Post('execute-prompt')
+  @ApiOperation({ summary: 'Execute an MCP Prompt and ask Gemini' })
+  public async executePrompt(
+    @Body() body: { promptName: string; args: Record<string, string> },
+  ) {
+    const promptData = await this.mcpService.getPrompt(
+      body.promptName,
+      body.args,
+    );
+    if (
+      !promptData ||
+      !promptData.messages ||
+      promptData.messages.length === 0
+    ) {
+      throw new BadRequestException('Prompt not found or empty');
+    }
+
+    // Extract the text from the prompt template
+    const promptText = promptData.messages
+      .map((m: any) => m.content.text)
+      .join('\n');
+
+    // Pass it directly to askWithMcp so it uses all tools and the prompt!
+    const response = await this.llmService.askWithMcp(promptText);
+    return { response };
   }
 }
