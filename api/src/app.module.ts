@@ -1,3 +1,4 @@
+import { McpModule, McpModuleOptions } from '@nestjs-mcp/server';
 import { RedisModule, RedisModuleOptions } from '@nestjs-modules/ioredis';
 import { BullModule, BullRootModuleOptions } from '@nestjs/bullmq';
 import { CacheModule, CacheModuleOptions } from '@nestjs/cache-manager';
@@ -29,6 +30,7 @@ import cloudinaryConfig, {
 import formDataConfig, {
   FORM_DATA_CONFIG_NAME,
 } from './config/form-data.config';
+import mcpConfig, { MCP_CONFIG_NAME } from './config/mcp.config';
 import mongooseConfig, { MONGOOSE_CONFIG_NAME } from './config/mongoose.config';
 import redisConfig, { REDIS_CONFIG_NAME } from './config/redis.config';
 import throttlerConfig, {
@@ -38,6 +40,7 @@ import { LlmModule } from './llm/llm.module';
 import { ProjectModule } from './project/project.module';
 import { PromptModule } from './prompt/prompt.module';
 import { RagModule } from './rag/rag.module';
+import { StatusModule } from './status/status.module';
 import { UserModule } from './user/user.module';
 import { injectConfig } from './utils/inject-config.util';
 
@@ -53,6 +56,7 @@ import { injectConfig } from './utils/inject-config.util';
         cacheConfig,
         bullmqConfig,
         redisConfig,
+        mcpConfig,
       ],
     }),
     SentryModule.forRoot(),
@@ -87,6 +91,8 @@ import { injectConfig } from './utils/inject-config.util';
       ...injectConfig<CloudinaryModuleOptions>(CLOUDINARY_CONFIG_NAME),
     }),
 
+    McpModule.forRootAsync(injectConfig<McpModuleOptions>(MCP_CONFIG_NAME)),
+
     UserModule,
     AuthModule,
     LlmModule,
@@ -94,6 +100,7 @@ import { injectConfig } from './utils/inject-config.util';
     PromptModule,
     RagModule,
     ProjectModule,
+    StatusModule,
   ],
   controllers: [AppController],
   providers: [
