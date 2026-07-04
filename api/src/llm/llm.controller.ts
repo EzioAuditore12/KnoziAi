@@ -1,3 +1,4 @@
+import { unlink } from 'node:fs/promises';
 import {
   Body,
   Controller,
@@ -9,11 +10,16 @@ import {
   Query,
   Sse,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { minutes, Throttle } from '@nestjs/throttler';
+import { FormDataRequest } from 'nestjs-form-data';
 import { from, Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
+import { AskLlmWithCacheDto } from './dto/ask-llm-with-cache.dto';
+import { AskLlmWithImageDto } from './dto/ask-llm-with-image.dto';
+import { AskLlmWithLargeFileDto } from './dto/ask-llm-with-large-file.dto';
+import { AskLlmWithPdfDto } from './dto/ask-llm-with-pdf.dto';
 import { AskLlmDto } from './dto/ask-llm.dto';
 import { AskWithSystemPromptDto } from './dto/ask-with-system-prompt.dto';
 import { LLM_SERVICE, type LlmService } from './interfaces/llm.interface';
@@ -32,6 +38,121 @@ export class LlmController {
   })
   public async ask(@Body() askLlmDto: AskLlmDto) {
     const response = await this.llmService.ask(askLlmDto.question);
+    return {
+      response,
+    };
+  }
+
+  @Throttle({ short: { limit: 5, ttl: minutes(1) } })
+  @HttpCode(HttpStatus.OK)
+  @Post('ask-with-cache')
+  @ApiOperation({
+    summary: 'Ask LLM with Prompt Caching',
+    description:
+      'Use the LLM with an in-memory cache to instantly return repeated queries without hitting the API.',
+  })
+  public async askWithCache(@Body() askLlmWithCacheDto: AskLlmWithCacheDto) {
+    const response = await this.llmService.askWithCache(
+      askLlmWithCacheDto.question,
+      askLlmWithCacheDto.bypassCache,
+    );
+    return {
+      response,
+    };
+  }
+
+  @HttpCode(HttpStatus.OK)
+  @Post('clear-cache')
+  @ApiOperation({
+    summary: 'Clear LLM Cache',
+    description: 'Clears the in-memory cache used by the LLM.',
+  })
+  public clearCache() {
+    this.llmService.clearCache();
+    return { success: true, message: 'Cache cleared successfully.' };
+  }
+
+  @Throttle({ short: { limit: 5, ttl: minutes(1) } })
+  @HttpCode(HttpStatus.OK)
+  @Post('ask-with-image')
+  @ApiConsumes('multipart/form-data')
+  @FormDataRequest()
+  @ApiOperation({
+    summary: 'Ask LLM with Image',
+    description: 'Use the LLM to analyze an image alongside a question.',
+  })
+  public async askWithImage(@Body() askLlmWithImageDto: AskLlmWithImageDto) {
+    try {
+      const response = await this.llmService.askWithImage(
+        askLlmWithImageDto.question,
+        askLlmWithImageDto.file.path,
+        askLlmWithImageDto.file.mimeType || 'image/jpeg',
+      );
+      return { response };
+    } finally {
+      await unlink(askLlmWithImageDto.file.path).catch(() => {});
+    }
+  }
+
+  @Throttle({ short: { limit: 5, ttl: minutes(1) } })
+  @HttpCode(HttpStatus.OK)
+  @Post('ask-with-large-file')
+  @ApiConsumes('multipart/form-data')
+  @FormDataRequest()
+  @ApiOperation({
+    summary: 'Ask LLM with Large File',
+    description:
+      'Uploads a large file (e.g. video, large PDF) using the Google File API and queries the LLM with it.',
+  })
+  public async askWithLargeFile(
+    @Body() askLlmWithLargeFileDto: AskLlmWithLargeFileDto,
+  ) {
+    const file = askLlmWithLargeFileDto.file;
+    const response = await this.llmService.askWithLargeFile(
+      askLlmWithLargeFileDto.question,
+      file.path,
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore - busBoyMimeType is protected, but we need it here. Or use standard mimeType.
+      file.mimeType ?? (file as any).busBoyMimeType,
+      file.originalName,
+    );
+
+    return {
+      response,
+    };
+  }
+
+  @Throttle({ short: { limit: 5, ttl: minutes(1) } })
+  @HttpCode(HttpStatus.OK)
+  @Post('ask-with-pdf')
+  @ApiConsumes('multipart/form-data')
+  @FormDataRequest()
+  @ApiOperation({
+    summary: 'Ask LLM with PDF',
+    description: 'Use the LLM to analyze a PDF alongside a question.',
+  })
+  public async askWithPdf(@Body() askLlmWithPdfDto: AskLlmWithPdfDto) {
+    try {
+      const response = await this.llmService.askWithPdf(
+        askLlmWithPdfDto.question,
+        askLlmWithPdfDto.file.path,
+        askLlmWithPdfDto.file.mimeType || 'application/pdf',
+      );
+      return { response };
+    } finally {
+      await unlink(askLlmWithPdfDto.file.path).catch(() => {});
+    }
+  }
+
+  @Throttle({ short: { limit: 5, ttl: minutes(1) } })
+  @HttpCode(HttpStatus.OK)
+  @Post('ask-with-thinking')
+  @ApiOperation({
+    summary: 'Ask LLM with Thinking',
+    description: 'Use the LLM with thinking (e.g. Gemini 2.0 Thinking).',
+  })
+  public async askWithThinking(@Body() askLlmDto: AskLlmDto) {
+    const response = await this.llmService.askWithThinking(askLlmDto.question);
     return {
       response,
     };

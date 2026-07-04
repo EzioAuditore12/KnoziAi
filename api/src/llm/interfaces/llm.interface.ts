@@ -9,6 +9,10 @@ export const LLM_SERVICE = 'LLM_SERVICE';
 export interface LlmService {
   ask(question: string): Promise<string>;
 
+  askWithCache(question: string, bypassCache?: boolean): Promise<any>;
+
+  clearCache(): void;
+
   askWithCurrentDateTime(question: string): Promise<string>;
 
   askWithWeather(question: string): Promise<string>;
@@ -37,6 +41,21 @@ export interface LlmService {
     askWithSystemPromptDto: AskWithSystemPromptDto,
   ): Promise<AskWithSystemResponseDto>;
 
+  askWithImage(
+    question: string,
+    imagePath: string,
+    mimeType: string,
+  ): Promise<any>;
+
+  askWithPdf(question: string, pdfPath: string, mimeType: string): Promise<any>;
+
+  askWithLargeFile(
+    question: string,
+    filePath: string,
+    mimeType: string,
+    displayName?: string,
+  ): Promise<any>;
+
   askUsingStream(question: string): AsyncGenerator<string, void, unknown>;
 
   askWithContextUsingStream(
@@ -47,4 +66,6 @@ export interface LlmService {
     promptText: string,
     schema: z.ZodType<T>,
   ): Promise<T>;
+
+  askWithThinking(question: string): Promise<any>;
 }
