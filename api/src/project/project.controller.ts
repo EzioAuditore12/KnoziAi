@@ -20,6 +20,7 @@ import { FormDataRequest } from 'nestjs-form-data';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth/jwt-auth.guard';
 import type { AuthRequest } from 'src/auth/types/auth-jwt';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { RetreiveContextDto } from 'src/rag/dto/retreive-context.dto';
 
 import { CreateProjectDto } from './dto/create-project.dto';
 import { ProjectListResponseDto } from './dto/project-list-response.dto';
@@ -97,5 +98,27 @@ export class ProjectController {
     const userId = req.user.id;
     await this.projectService.processProjectFile(projectId, userId);
     return { message: 'Project file embeddings processed successfully.' };
+  }
+
+  @Post(':id/ask')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Retrieve context for a query',
+    description:
+      'Searches the project file embeddings using the configured RAG strategy to return relevant context.',
+  })
+  @UseGuards(JwtAuthGuard)
+  public async askProject(
+    @Req() req: AuthRequest,
+    @Param('id') projectId: string,
+    @Body() body: RetreiveContextDto,
+  ) {
+    const userId = req.user.id;
+    return await this.projectService.answerProjectQuestion(
+      projectId,
+      userId,
+      body.query,
+      body.limit,
+    );
   }
 }

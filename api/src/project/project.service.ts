@@ -8,10 +8,16 @@ import { ClientSession, Connection, Model, type PaginateModel } from 'mongoose';
 import { CloudinaryService } from 'nestjs-cloudinary';
 import { firstValueFrom } from 'rxjs';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
+import { RagStrategy } from 'src/rag/enums/rag-strategy.enum';
 import {
   INGESTION_SERVICE,
   type IngestionService,
 } from 'src/rag/interfaces/ingestion.interface';
+import {
+  RETRIEVAL_SERVICE,
+  type RetrievalService,
+  type RetrievedContext,
+} from 'src/rag/interfaces/retrieval.interface';
 import { mapToDto } from 'src/utils/dto-mapper.util';
 
 import { CreateProjectDto } from './dto/create-project.dto';
@@ -41,6 +47,9 @@ export class ProjectService {
     @Inject(INGESTION_SERVICE)
     private readonly ingestionService: IngestionService,
 
+    @Inject(RETRIEVAL_SERVICE)
+    private readonly retrievalService: RetrievalService,
+
     private readonly httpService: HttpService,
   ) {}
 
@@ -51,7 +60,8 @@ export class ProjectService {
     const session = await this.connection.startSession();
 
     try {
-      const { name, description, file, settings } = createProjectDto;
+      const { name, description, file, ragStrategy, reRankingModel } =
+        createProjectDto;
 
       const uploadedFile =
         await this.cloudinaryService.cloudinaryInstance.uploader.upload(
@@ -65,7 +75,8 @@ export class ProjectService {
         fileUrl: uploadedFile.url,
         fileType: ProjectFileType.PDF, // For now only pdf
         settings: {
-          ...settings,
+          ...(ragStrategy && { ragStrategy }),
+          ...(reRankingModel && { reRankingModel }),
           embeddingModel: this.ingestionService.embeddingModelName,
         },
       });
@@ -228,5 +239,49 @@ export class ProjectService {
       await this.projectRepository.create(insertProjectDto);
 
     return mapToDto(ProjectDto, insertedProject);
+  }
+
+  public async retrieveProjectContext(
+    projectId: string,
+    userId: string,
+    query: string,
+    limit = 5,
+  ): Promise<RetrievedContext[]> {
+    const project = await this.projectRepository.findOne({
+      _id: projectId,
+      userId,
+    });
+
+    if (!project)
+      throw new UnauthorizedException('Project not found or unauthorized');
+
+    return this.retrievalService.retrieveContext(
+      this.projectFileEmbeddingRepository,
+      projectId,
+      query,
+      project.settings?.ragStrategy || RagStrategy.BASIC,
+      limit,
+    );
+  }
+
+  public async answerProjectQuestion(
+    projectId: string,
+    userId: string,
+    query: string,
+    limit = 5,
+  ): Promise<{ answer: string; contexts: RetrievedContext[] }> {
+    const contexts = await this.retrieveProjectContext(
+      projectId,
+      userId,
+      query,
+      limit,
+    );
+
+    const answer = await this.retrievalService.answerFromContext(
+      query,
+      contexts,
+    );
+
+    return { answer, contexts };
   }
 }

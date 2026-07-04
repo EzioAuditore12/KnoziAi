@@ -14,6 +14,17 @@ export class ProjectSetupService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    try {
+      // Ensure the collection physically exists in MongoDB before creating search indices.
+      // This prevents 'NamespaceNotFound' errors if the collection was just dropped.
+      await this.embeddingModel.createCollection();
+    } catch (error) {
+      // 48 is NamespaceExists (already exists), which is perfectly fine.
+      if (error.code !== 48 && !error.message.includes('already exists')) {
+        this.logger.error('Failed to ensure collection exists', error);
+      }
+    }
+
     await this.setupVectorSearchIndex();
     await this.setupFullTextSearchIndex();
   }
@@ -34,6 +45,10 @@ export class ProjectSetupService implements OnModuleInit {
               path: 'embedding',
               numDimensions: 1536, // Make sure this matches your Gemini output dims!
               similarity: 'cosine',
+            },
+            {
+              type: 'filter',
+              path: 'projectId',
             },
           ],
         },
@@ -60,6 +75,7 @@ export class ProjectSetupService implements OnModuleInit {
             dynamic: false,
             fields: {
               content: { type: 'string' },
+              projectId: { type: 'objectId' },
               metadata: {
                 type: 'document',
                 fields: {

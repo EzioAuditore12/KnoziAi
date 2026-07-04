@@ -1,20 +1,10 @@
-import { ApiProperty, OmitType, PickType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PickType } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import {
-  IsOptional,
-  IsString,
-  MaxLength,
-  ValidateNested,
-} from 'class-validator';
+import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
 import { FileSystemStoredFile, HasMimeType, IsFile } from 'nestjs-form-data';
+import { RagStrategy } from 'src/rag/enums/rag-strategy.enum';
 
-import { ProjectSettingsDto } from './project-settings.dto';
 import { ProjectDto } from './project.dto';
-
-export class CreateProjectSettingsDto extends OmitType(ProjectSettingsDto, [
-  'embeddingModel',
-  'outputDimensionality',
-]) {}
 
 export class CreateProjectDto extends PickType(ProjectDto, [
   'name',
@@ -33,8 +23,13 @@ export class CreateProjectDto extends PickType(ProjectDto, [
   @HasMimeType(['application/pdf'])
   file: FileSystemStoredFile;
 
+  @ApiPropertyOptional({ enum: RagStrategy })
   @IsOptional()
-  @ValidateNested()
-  @Type(() => CreateProjectSettingsDto)
-  settings?: CreateProjectSettingsDto;
+  @IsEnum(RagStrategy)
+  ragStrategy?: RagStrategy;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  reRankingModel?: string;
 }

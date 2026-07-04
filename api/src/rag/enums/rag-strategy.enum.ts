@@ -1,4 +1,6 @@
 export enum RagStrategy {
   BASIC = 'basic',
-  ADVANCED = 'advanced',
+  HYBRID = 'hybrid',
+  MULTI_QUERY_VECTOR = 'multi-query-vector',
+  MULTI_QUERY_HYBRID = 'multi-query-hybrid',
 }
