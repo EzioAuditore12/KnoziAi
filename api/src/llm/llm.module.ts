@@ -7,6 +7,7 @@ import { LLM_SERVICE } from './interfaces/llm.interface';
 import { LlmController } from './llm.controller';
 import { McpService } from './mcp.service';
 import { OpenWeatherProvider } from './providers/openweather.provider';
+import { DocumentsResourceProvider } from './resources/documents.resource';
 import { CurrentTimeTool } from './tools/current-time.tool';
 import { MathTool } from './tools/math.tool';
 import { StatusTool } from './tools/status.tool';
@@ -15,7 +16,10 @@ import { WeatherTool } from './tools/weather.tool';
 @Module({
   imports: [
     HttpModule,
-    McpModule.forFeature([MathTool, StatusTool], 'KnoziAi MCP Server'),
+    McpModule.forFeature(
+      [MathTool, StatusTool, DocumentsResourceProvider],
+      'KnoziAi MCP Server',
+    ),
   ],
   controllers: [LlmController],
   providers: [
@@ -29,6 +33,7 @@ import { WeatherTool } from './tools/weather.tool';
     McpService,
     StatusTool,
     MathTool,
+    DocumentsResourceProvider,
   ],
   exports: [LLM_SERVICE, CurrentTimeTool, WeatherTool, McpService],
 })

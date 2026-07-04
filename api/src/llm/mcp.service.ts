@@ -25,6 +25,28 @@ export class McpService implements OnModuleDestroy {
     }
   }
 
+  public async getMcpResources() {
+    try {
+      await this.mcpClient.initializeConnections();
+      return await this.mcpClient.listResources();
+    } catch (error) {
+      this.logger.warn(
+        `Could not fetch MCP resources: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return {};
+    }
+  }
+
+  public async readMcpResource(uri: string) {
+    try {
+      await this.mcpClient.initializeConnections();
+      return await this.mcpClient.readResource('localNestServer', uri);
+    } catch (error) {
+      this.logger.error(`Failed to read resource ${uri}:`, error);
+      return null;
+    }
+  }
+
   async onModuleDestroy() {
     await this.mcpClient.close();
   }

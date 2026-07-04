@@ -294,9 +294,43 @@ export class GeminiLlmService implements LlmService {
     return this.invokeWithToolsAndHandle(question, [this.weatherTool.get()]);
   }
 
-  public async askWithMcp(question: string): Promise<string> {
+  public async askWithMcp(
+    question: string,
+    resourceUri?: string,
+  ): Promise<string> {
     const mcpTools = await this.mcpService.getMcpTools();
-    return this.invokeWithToolsAndHandle(question, mcpTools);
+
+    let injectedContext = '';
+
+    // 1. Auto-detect @mentions in the text (e.g. "@doc1" or "@docs://documents/doc1")
+    const mentionRegex = /@([a-zA-Z0-9_\-\.\/:]+)/g;
+    const mentions = [...question.matchAll(mentionRegex)].map((m) => m[1]);
+
+    for (const mention of mentions) {
+      // If they typed "@doc1", we convert it to the full URI. If they typed the full URI, keep it.
+      const uri = mention.startsWith('docs://')
+        ? mention
+        : `docs://documents/${mention}`;
+      const resourceData = await this.mcpService.readMcpResource(uri);
+
+      if (resourceData && resourceData.length > 0) {
+        const docText = resourceData[0].text;
+        injectedContext += `\n\n=== RELEVANT CONTEXT (From ${uri}) ===\n${docText}\n================================\n\n`;
+      }
+    }
+
+    // 2. Also keep support for explicit resourceUri if passed via query parameter
+    if (resourceUri) {
+      const resourceData = await this.mcpService.readMcpResource(resourceUri);
+      if (resourceData && resourceData.length > 0) {
+        const docText = resourceData[0].text;
+        injectedContext += `\n\n=== RELEVANT CONTEXT (From ${resourceUri}) ===\n${docText}\n================================\n\n`;
+      }
+    }
+
+    const enhancedPrompt = injectedContext + question;
+
+    return this.invokeWithToolsAndHandle(enhancedPrompt, mcpTools);
   }
 
   public async askWithCodeExecution(question: string): Promise<string> {
@@ -418,6 +452,10 @@ export class GeminiLlmService implements LlmService {
     question: string,
     tools: any[],
   ): Promise<string> {
+    if (!tools || tools.length === 0) {
+      return this.invokeAndExtract(question);
+    }
+
     const modelWithTools = this.model.bindTools(tools);
     const messages: BaseMessage[] = [new HumanMessage(question)];
     const response = await modelWithTools.invoke(messages);

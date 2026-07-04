@@ -200,8 +200,14 @@ export class LlmController {
     summary: 'Ask LLM with MCP Tools',
     description: 'Use the LLM with connected MCP tools.',
   })
-  public async askWithMcp(@Body() askLlmDto: AskLlmDto) {
-    const response = await this.llmService.askWithMcp(askLlmDto.question);
+  public async askWithMcp(
+    @Body() askLlmDto: AskLlmDto,
+    @Query('resourceUri') resourceUri?: string,
+  ) {
+    const response = await this.llmService.askWithMcp(
+      askLlmDto.question,
+      resourceUri,
+    );
     return {
       response,
     };
@@ -315,5 +321,22 @@ export class LlmController {
     }));
 
     return { status: 'connected', tools: formattedTools };
+  }
+
+  @Get('mcp-resources')
+  @ApiOperation({ summary: 'List all available MCP Resources for @mentions' })
+  public async getMcpResources() {
+    const resourcesMap = await this.mcpService.getMcpResources();
+    return {
+      status: 'connected',
+      resources: resourcesMap['localNestServer'] || [],
+    };
+  }
+
+  @Get('mcp-resource-content')
+  @ApiOperation({ summary: 'Fetch the raw content of a specific resource URI' })
+  public async readMcpResource(@Query('uri') uri: string) {
+    const content = await this.mcpService.readMcpResource(uri);
+    return { uri, content };
   }
 }
