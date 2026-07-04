@@ -350,7 +350,11 @@ export class GeminiLlmService implements LlmService {
 
       if (fullResponse.tool_calls && fullResponse.tool_calls.length > 0) {
         conversation.push(fullResponse);
-        await this.executeRequestedTools(fullResponse.tool_calls, conversation, allTools);
+        await this.executeRequestedTools(
+          fullResponse.tool_calls,
+          conversation,
+          allTools,
+        );
         newMessages.push(
           ...conversation.slice(
             conversation.length - fullResponse.tool_calls.length,
@@ -386,7 +390,11 @@ export class GeminiLlmService implements LlmService {
 
     if (response.tool_calls && response.tool_calls.length > 0) {
       conversation.push(response);
-      await this.executeRequestedTools(response.tool_calls, conversation, allTools);
+      await this.executeRequestedTools(
+        response.tool_calls,
+        conversation,
+        allTools,
+      );
       newMessages.push(
         ...conversation.slice(conversation.length - response.tool_calls.length),
       );

@@ -40,7 +40,6 @@ import { LlmModule } from './llm/llm.module';
 import { ProjectModule } from './project/project.module';
 import { PromptModule } from './prompt/prompt.module';
 import { RagModule } from './rag/rag.module';
-
 import { UserModule } from './user/user.module';
 import { injectConfig } from './utils/inject-config.util';
 

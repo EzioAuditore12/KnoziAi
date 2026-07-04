@@ -302,17 +302,18 @@ export class LlmController {
   @Get('mcp-tools')
   @ApiOperation({
     summary: 'Get available MCP Tools',
-    description: 'Fetches the list of all connected MCP tools available to the LLM.',
+    description:
+      'Fetches the list of all connected MCP tools available to the LLM.',
   })
   public async getMcpTools() {
     const tools = await this.mcpService.getMcpTools();
-    
+
     // Map the complex LangChain tool classes into plain JSON objects
     const formattedTools = tools.map((t) => ({
       name: t.name,
       description: t.description,
     }));
-    
+
     return { status: 'connected', tools: formattedTools };
   }
 }

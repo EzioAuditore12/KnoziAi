@@ -1,5 +1,5 @@
-import { HttpModule } from '@nestjs/axios';
 import { McpModule } from '@nestjs-mcp/server';
+import { HttpModule } from '@nestjs/axios';
 import { Module } from '@nestjs/common';
 
 import { GeminiLlmService } from './gemini-llm.service';

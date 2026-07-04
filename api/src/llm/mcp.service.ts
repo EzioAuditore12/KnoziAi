@@ -1,7 +1,7 @@
+import { DynamicStructuredTool } from '@langchain/core/tools';
 import { MultiServerMCPClient } from '@langchain/mcp-adapters';
 import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DynamicStructuredTool } from '@langchain/core/tools';
 
 @Injectable()
 export class McpService implements OnModuleDestroy {
