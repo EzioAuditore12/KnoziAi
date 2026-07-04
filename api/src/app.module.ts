@@ -1,4 +1,3 @@
-import { McpModule, McpModuleOptions } from '@nestjs-mcp/server';
 import { RedisModule, RedisModuleOptions } from '@nestjs-modules/ioredis';
 import { BullModule, BullRootModuleOptions } from '@nestjs/bullmq';
 import { CacheModule, CacheModuleOptions } from '@nestjs/cache-manager';
@@ -11,6 +10,7 @@ import {
   ThrottlerModule,
   ThrottlerModuleOptions,
 } from '@nestjs/throttler';
+import { McpModule } from '@rekog/mcp-nest';
 import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
 import { CloudinaryModule, CloudinaryModuleOptions } from 'nestjs-cloudinary';
 import {
@@ -90,7 +90,7 @@ import { injectConfig } from './utils/inject-config.util';
       ...injectConfig<CloudinaryModuleOptions>(CLOUDINARY_CONFIG_NAME),
     }),
 
-    McpModule.forRootAsync(injectConfig<McpModuleOptions>(MCP_CONFIG_NAME)),
+    McpModule.forRoot(mcpConfig()),
 
     UserModule,
     AuthModule,
