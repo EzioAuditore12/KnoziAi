@@ -17,6 +17,8 @@ export interface LlmService {
 
   askWithWeather(question: string): Promise<string>;
 
+  askWithMcp(question: string): Promise<string>;
+
   askWithCodeExecution(question: string): Promise<string>;
 
   askWithCodeExecutionStream(

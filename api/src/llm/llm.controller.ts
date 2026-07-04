@@ -2,6 +2,7 @@ import { unlink } from 'node:fs/promises';
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Inject,
@@ -23,11 +24,15 @@ import { AskLlmWithPdfDto } from './dto/ask-llm-with-pdf.dto';
 import { AskLlmDto } from './dto/ask-llm.dto';
 import { AskWithSystemPromptDto } from './dto/ask-with-system-prompt.dto';
 import { LLM_SERVICE, type LlmService } from './interfaces/llm.interface';
+import { McpService } from './mcp.service';
 
 @ApiTags('LLM')
 @Controller('llm')
 export class LlmController {
-  constructor(@Inject(LLM_SERVICE) private readonly llmService: LlmService) {}
+  constructor(
+    @Inject(LLM_SERVICE) private readonly llmService: LlmService,
+    private readonly mcpService: McpService,
+  ) {}
 
   @Throttle({ short: { limit: 5, ttl: minutes(1) } })
   @HttpCode(HttpStatus.OK)
@@ -190,6 +195,20 @@ export class LlmController {
 
   @Throttle({ short: { limit: 5, ttl: minutes(1) } })
   @HttpCode(HttpStatus.OK)
+  @Post('ask-with-mcp')
+  @ApiOperation({
+    summary: 'Ask LLM with MCP Tools',
+    description: 'Use the LLM with connected MCP tools.',
+  })
+  public async askWithMcp(@Body() askLlmDto: AskLlmDto) {
+    const response = await this.llmService.askWithMcp(askLlmDto.question);
+    return {
+      response,
+    };
+  }
+
+  @Throttle({ short: { limit: 5, ttl: minutes(1) } })
+  @HttpCode(HttpStatus.OK)
   @Post('ask-with-code-execution')
   @ApiOperation({
     summary: 'Ask LLM with Code Execution Tool',
@@ -278,5 +297,22 @@ export class LlmController {
     return from(this.llmService.askWithWebSearchStream(question)).pipe(
       map((chunk) => ({ data: chunk }) as MessageEvent),
     );
+  }
+
+  @Get('mcp-tools')
+  @ApiOperation({
+    summary: 'Get available MCP Tools',
+    description: 'Fetches the list of all connected MCP tools available to the LLM.',
+  })
+  public async getMcpTools() {
+    const tools = await this.mcpService.getMcpTools();
+    
+    // Map the complex LangChain tool classes into plain JSON objects
+    const formattedTools = tools.map((t) => ({
+      name: t.name,
+      description: t.description,
+    }));
+    
+    return { status: 'connected', tools: formattedTools };
   }
 }

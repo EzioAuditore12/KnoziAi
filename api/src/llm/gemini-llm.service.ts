@@ -23,6 +23,7 @@ import {
   askWithSystemResponseSchema,
 } from './dto/ask-with-system-response.dto';
 import { LlmService } from './interfaces/llm.interface';
+import { McpService } from './mcp.service';
 import { CurrentTimeTool } from './tools/current-time.tool';
 import { WeatherTool } from './tools/weather.tool';
 
@@ -36,6 +37,7 @@ export class GeminiLlmService implements LlmService {
     private readonly configService: ConfigService,
     private readonly currentTimeTool: CurrentTimeTool,
     private readonly weatherTool: WeatherTool,
+    private readonly mcpService: McpService,
   ) {
     this.model = this.initializeModel();
   }
@@ -292,6 +294,11 @@ export class GeminiLlmService implements LlmService {
     return this.invokeWithToolsAndHandle(question, [this.weatherTool.get()]);
   }
 
+  public async askWithMcp(question: string): Promise<string> {
+    const mcpTools = await this.mcpService.getMcpTools();
+    return this.invokeWithToolsAndHandle(question, mcpTools);
+  }
+
   public async askWithCodeExecution(question: string): Promise<string> {
     return this.invokeWithToolsAndHandle(question, [{ codeExecution: {} }]);
   }
@@ -323,10 +330,14 @@ export class GeminiLlmService implements LlmService {
   public async *askWithToolsAndContextStream(
     messages: BaseMessage[],
   ): AsyncGenerator<string, BaseMessage[], unknown> {
-    const modelWithTools = this.model.bindTools([
+    const mcpTools = await this.mcpService.getMcpTools();
+    const allTools = [
       this.currentTimeTool.get(),
       this.weatherTool.get(),
-    ]);
+      ...mcpTools,
+    ];
+    const modelWithTools = this.model.bindTools(allTools);
+
     const conversation: BaseMessage[] = [...messages];
     const newMessages: BaseMessage[] = [];
 
@@ -339,7 +350,7 @@ export class GeminiLlmService implements LlmService {
 
       if (fullResponse.tool_calls && fullResponse.tool_calls.length > 0) {
         conversation.push(fullResponse);
-        await this.executeRequestedTools(fullResponse.tool_calls, conversation);
+        await this.executeRequestedTools(fullResponse.tool_calls, conversation, allTools);
         newMessages.push(
           ...conversation.slice(
             conversation.length - fullResponse.tool_calls.length,
@@ -359,10 +370,14 @@ export class GeminiLlmService implements LlmService {
   public async askWithToolsAndContext(
     messages: BaseMessage[],
   ): Promise<BaseMessage[]> {
-    const modelWithTools = this.model.bindTools([
+    const mcpTools = await this.mcpService.getMcpTools();
+    const allTools = [
       this.currentTimeTool.get(),
       this.weatherTool.get(),
-    ]);
+      ...mcpTools,
+    ];
+    const modelWithTools = this.model.bindTools(allTools);
+
     const conversation: BaseMessage[] = [...messages];
     const newMessages: BaseMessage[] = [];
 
@@ -371,7 +386,7 @@ export class GeminiLlmService implements LlmService {
 
     if (response.tool_calls && response.tool_calls.length > 0) {
       conversation.push(response);
-      await this.executeRequestedTools(response.tool_calls, conversation);
+      await this.executeRequestedTools(response.tool_calls, conversation, allTools);
       newMessages.push(
         ...conversation.slice(conversation.length - response.tool_calls.length),
       );
@@ -402,6 +417,7 @@ export class GeminiLlmService implements LlmService {
       response,
       messages,
       modelWithTools,
+      tools,
     );
     return this.extractText(finalResponse.content);
   }
@@ -522,10 +538,15 @@ export class GeminiLlmService implements LlmService {
   private async executeRequestedTools(
     toolCalls: ToolCall[],
     messages: BaseMessage[],
+    availableTools: any[],
   ): Promise<void> {
+    const toolsByName = Object.fromEntries(
+      availableTools.map((t) => [t.name, t]),
+    );
+
     for (const toolCall of toolCalls) {
-      if (toolCall.name === this.currentTimeTool.toolName) {
-        const tool = this.currentTimeTool.get();
+      const tool = toolsByName[toolCall.name];
+      if (tool) {
         const toolResult = await tool.invoke(toolCall.args);
         messages.push(
           new ToolMessage({
@@ -534,16 +555,8 @@ export class GeminiLlmService implements LlmService {
             name: toolCall.name,
           }),
         );
-      } else if (toolCall.name === this.weatherTool.toolName) {
-        const tool = this.weatherTool.get();
-        const toolResult = await tool.invoke(toolCall.args);
-        messages.push(
-          new ToolMessage({
-            content: toolResult,
-            tool_call_id: toolCall.id ?? '',
-            name: toolCall.name,
-          }),
-        );
+      } else {
+        this.logger.warn(`Tool not found: ${toolCall.name}`);
       }
     }
   }
@@ -552,10 +565,15 @@ export class GeminiLlmService implements LlmService {
     response: T,
     messages: BaseMessage[],
     modelWithTools: Runnable<any, T>,
+    availableTools?: any[],
   ): Promise<T> {
     if (response.tool_calls && response.tool_calls.length > 0) {
       messages.push(response);
-      await this.executeRequestedTools(response.tool_calls, messages);
+      await this.executeRequestedTools(
+        response.tool_calls,
+        messages,
+        availableTools || [this.currentTimeTool.get(), this.weatherTool.get()],
+      );
       return await modelWithTools.invoke(messages);
     }
     return response;

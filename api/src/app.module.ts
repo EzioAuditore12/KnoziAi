@@ -40,7 +40,7 @@ import { LlmModule } from './llm/llm.module';
 import { ProjectModule } from './project/project.module';
 import { PromptModule } from './prompt/prompt.module';
 import { RagModule } from './rag/rag.module';
-import { StatusModule } from './status/status.module';
+
 import { UserModule } from './user/user.module';
 import { injectConfig } from './utils/inject-config.util';
 
@@ -100,7 +100,6 @@ import { injectConfig } from './utils/inject-config.util';
     PromptModule,
     RagModule,
     ProjectModule,
-    StatusModule,
   ],
   controllers: [AppController],
   providers: [
